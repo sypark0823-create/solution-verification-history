@@ -1,0 +1,378 @@
+:root {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --border: #dbe1e8;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --header-bg: #eef2f7;
+  --row-alt: #fafbfc;
+  --row-hover: #eef4ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Malgun Gothic", -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.btn {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover {
+  background: var(--header-bg);
+}
+
+.btn-small {
+  padding: 4px 9px;
+  font-size: 12px;
+  margin-right: 4px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.btn-small:hover {
+  background: var(--header-bg);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: #f3c2c2;
+}
+.btn-danger:hover {
+  background: #fef2f2;
+  border-color: var(--danger-hover);
+}
+
+main {
+  padding: 16px 20px 40px;
+}
+
+.table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  max-height: calc(100vh - 110px);
+}
+
+table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--header-bg);
+  z-index: 10;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+#filterRow th {
+  top: 37px;
+  z-index: 9;
+  background: #f7f9fc;
+  padding: 4px 6px;
+}
+
+#headerRow th {
+  padding: 0;
+  cursor: default;
+  user-select: none;
+}
+
+#headerRow th.sortable {
+  cursor: pointer;
+  padding: 9px 10px;
+}
+
+#headerRow th.sortable:hover {
+  background: #e2e9f2;
+}
+
+#headerRow th.sorted {
+  color: var(--primary);
+}
+
+.sort-indicator {
+  margin-left: 4px;
+  font-size: 10px;
+}
+
+.col-action {
+  min-width: 96px;
+  text-align: center;
+}
+
+.filter-input {
+  width: 110px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tbody td.col-wide {
+  white-space: normal;
+  min-width: 220px;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--row-alt);
+}
+
+tbody tr:hover {
+  background: var(--row-hover);
+}
+
+tbody tr td.col-action {
+  white-space: nowrap;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  z-index: 100;
+  overflow: auto;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 760px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.icon-btn {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+}
+.icon-btn:hover {
+  color: var(--text);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  padding: 20px;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-field label {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.form-field input,
+.form-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.confirm-modal {
+  max-width: 380px;
+}
+
+.confirm-body {
+  padding: 20px;
+}
+
+.confirm-body p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.btn-danger-solid {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger-solid:hover {
+  background: var(--danger-hover);
+}
+
+.daterange-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daterange-inputs input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.daterange-inputs input[type="date"]:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.daterange-sep {
+  color: var(--muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.sub-section {
+  margin-top: 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.section-header h2 {
+  font-size: 16px;
+  margin: 0;
+}

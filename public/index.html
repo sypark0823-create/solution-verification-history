@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>솔루션 검증이력 관리</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>솔루션 검증이력 관리</h1>
+  <div class="actions">
+    <span id="recordCount" class="count"></span>
+    <button id="resetFiltersBtn" class="btn btn-secondary" type="button">필터 초기화</button>
+    <button id="exportBtn" class="btn btn-secondary" type="button">엑셀 다운로드</button>
+    <button id="addBtn" class="btn btn-primary" type="button">+ 신규 등록</button>
+  </div>
+</header>
+
+<main>
+  <div class="table-wrap">
+    <table id="dataTable">
+      <thead>
+        <tr id="headerRow"></tr>
+        <tr id="filterRow"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">신규 등록</h2>
+      <button id="modalCloseBtn" class="icon-btn" type="button">&times;</button>
+    </div>
+    <form id="recordForm">
+      <div id="formGrid" class="form-grid"></div>
+      <div class="modal-footer">
+        <button type="button" id="cancelBtn" class="btn btn-secondary">취소</button>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="confirmOverlay" class="modal-overlay hidden">
+  <div class="modal confirm-modal">
+    <div class="modal-header">
+      <h2>삭제 확인</h2>
+    </div>
+    <div class="confirm-body">
+      <p id="confirmMessage"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="confirmCancelBtn" class="btn btn-secondary">취소</button>
+      <button type="button" id="confirmOkBtn" class="btn btn-danger-solid">삭제</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
