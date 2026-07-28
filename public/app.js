@@ -10,6 +10,7 @@ async function init() {
   FIELDS = await fetch('/api/fields').then((r) => r.json());
   buildHeader();
   buildFormGrid();
+  addConditionRow();
   await loadRecords();
   bindEvents();
 }
@@ -129,6 +130,99 @@ function buildFormGrid() {
     wrap.appendChild(input);
     grid.appendChild(wrap);
   });
+}
+
+function createConditionValueInput(field) {
+  let input;
+  if (field.type === 'select') {
+    input = document.createElement('select');
+    const allOpt = document.createElement('option');
+    allOpt.value = '';
+    allOpt.textContent = '전체';
+    input.appendChild(allOpt);
+    field.options.forEach((opt) => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      input.appendChild(o);
+    });
+  } else if (field.type === 'date') {
+    input = document.createElement('input');
+    input.type = 'date';
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '검색어 입력';
+  }
+  input.className = 'condition-value';
+  return input;
+}
+
+function clearFilterForKey(key) {
+  filters[key] = '';
+  const colInput = document.querySelector(`.filter-input[data-key="${key}"]`);
+  if (colInput) colInput.value = '';
+}
+
+function addConditionRow() {
+  const rows = el('#conditionRows');
+  const row = document.createElement('div');
+  row.className = 'condition-row';
+
+  const fieldSelect = document.createElement('select');
+  fieldSelect.className = 'condition-field';
+  FIELDS.forEach((f) => {
+    const opt = document.createElement('option');
+    opt.value = f.key;
+    opt.textContent = f.label;
+    fieldSelect.appendChild(opt);
+  });
+
+  const valueWrap = document.createElement('div');
+  valueWrap.className = 'condition-value-wrap';
+
+  const renderValueInput = () => {
+    valueWrap.innerHTML = '';
+    const field = FIELDS.find((f) => f.key === fieldSelect.value);
+    valueWrap.appendChild(createConditionValueInput(field));
+  };
+  renderValueInput();
+  fieldSelect.addEventListener('change', renderValueInput);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'btn-small condition-remove';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', () => {
+    clearFilterForKey(fieldSelect.value);
+    row.remove();
+    render();
+  });
+
+  row.appendChild(fieldSelect);
+  row.appendChild(valueWrap);
+  row.appendChild(removeBtn);
+  rows.appendChild(row);
+}
+
+function applyConditions() {
+  document.querySelectorAll('#conditionRows .condition-row').forEach((row) => {
+    const key = row.querySelector('.condition-field').value;
+    const value = row.querySelector('.condition-value').value.trim();
+    filters[key] = value;
+    const colInput = document.querySelector(`.filter-input[data-key="${key}"]`);
+    if (colInput) colInput.value = value;
+  });
+  render();
+}
+
+function clearConditions() {
+  document.querySelectorAll('#conditionRows .condition-row').forEach((row) => {
+    const key = row.querySelector('.condition-field').value;
+    row.querySelector('.condition-value').value = '';
+    clearFilterForKey(key);
+  });
+  render();
 }
 
 function formatDateRange(value) {
@@ -353,6 +447,7 @@ async function onDelete(record) {
 function resetFilters() {
   filters = {};
   document.querySelectorAll('.filter-input').forEach((i) => (i.value = ''));
+  document.querySelectorAll('.condition-value').forEach((i) => (i.value = ''));
   render();
 }
 
@@ -365,6 +460,9 @@ function bindEvents() {
     window.location.href = '/api/export';
   });
   el('#resetFiltersBtn').addEventListener('click', resetFilters);
+  el('#addConditionBtn').addEventListener('click', () => addConditionRow());
+  el('#searchBtn').addEventListener('click', applyConditions);
+  el('#clearConditionsBtn').addEventListener('click', clearConditions);
   el('#modalOverlay').addEventListener('click', (e) => {
     if (e.target.id === 'modalOverlay') closeModal();
   });

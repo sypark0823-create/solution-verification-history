@@ -361,18 +361,73 @@ tbody tr td.col-action {
   flex-shrink: 0;
 }
 
-.sub-section {
-  margin-top: 24px;
+.condition-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
 }
 
-.section-header {
+.condition-rows {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.section-header h2 {
-  font-size: 16px;
-  margin: 0;
+.condition-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.condition-field {
+  min-width: 160px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.condition-value-wrap {
+  flex: 1;
+  min-width: 160px;
+  max-width: 280px;
+}
+
+.condition-value {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.condition-value:focus,
+.condition-field:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.condition-remove {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.condition-remove:hover {
+  background: #fef2f2;
+  color: var(--danger);
+  border-color: #f3c2c2;
+}
+
+.condition-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
