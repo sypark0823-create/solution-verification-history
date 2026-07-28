@@ -369,20 +369,29 @@ tbody tr td.col-action {
   margin-bottom: 14px;
 }
 
+.condition-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .condition-rows {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
 .condition-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .condition-field {
-  min-width: 160px;
+  width: 140px;
+  flex-shrink: 0;
   padding: 7px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -390,9 +399,8 @@ tbody tr td.col-action {
 }
 
 .condition-value-wrap {
-  flex: 1;
-  min-width: 160px;
-  max-width: 280px;
+  width: 150px;
+  flex-shrink: 0;
 }
 
 .condition-value {
@@ -429,5 +437,5 @@ tbody tr td.col-action {
 .condition-actions {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  flex-shrink: 0;
 }
