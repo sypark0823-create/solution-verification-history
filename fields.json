@@ -14,12 +14,12 @@
   { "key": "verificationOrg", "label": "검증주관조직", "type": "select", "options": ["SDSK", "GDCV"] },
   { "key": "targetCompletionDate", "label": "완료목표일자", "type": "date" },
   { "key": "completionDate", "label": "완료일자", "type": "date" },
-  { "key": "functionalPeriod", "label": "기능검증계획기간", "type": "daterange" },
-  { "key": "performancePeriod", "label": "성능검증계획기간", "type": "daterange" },
-  { "key": "securityPeriod", "label": "보안검증계획기간", "type": "daterange" },
-  { "key": "licensePeriod", "label": "OSL검증계획기간", "type": "daterange" },
-  { "key": "cxPeriod", "label": "CX검증계획기간", "type": "daterange" },
-  { "key": "codeQualityPeriod", "label": "코드품질계획기간", "type": "daterange" },
+  { "key": "functionalPeriod", "label": "기능검증", "type": "daterange" },
+  { "key": "performancePeriod", "label": "성능검증", "type": "daterange" },
+  { "key": "securityPeriod", "label": "보안검증", "type": "daterange" },
+  { "key": "licensePeriod", "label": "OSL검증", "type": "daterange" },
+  { "key": "cxPeriod", "label": "CX검증", "type": "daterange" },
+  { "key": "codeQualityPeriod", "label": "코드품질", "type": "daterange" },
   { "key": "result", "label": "수행결과", "type": "select", "options": ["PASS", "FAIL"] },
   { "key": "qualityManager", "label": "품질담당자", "type": "text" }
 ]

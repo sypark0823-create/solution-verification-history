@@ -93,9 +93,23 @@ function buildFormGrid() {
       const endInput = document.createElement('input');
       endInput.type = 'date';
       endInput.id = 'field_' + f.key + '_end';
+
+      const naLabel = document.createElement('label');
+      naLabel.className = 'daterange-na-label';
+      const naCheckbox = document.createElement('input');
+      naCheckbox.type = 'checkbox';
+      naCheckbox.id = 'field_' + f.key + '_na';
+      naCheckbox.addEventListener('change', () => {
+        startInput.disabled = naCheckbox.checked;
+        endInput.disabled = naCheckbox.checked;
+      });
+      naLabel.appendChild(naCheckbox);
+      naLabel.appendChild(document.createTextNode(' 비대상'));
+
       rangeWrap.appendChild(startInput);
       rangeWrap.appendChild(sep);
       rangeWrap.appendChild(endInput);
+      rangeWrap.appendChild(naLabel);
       wrap.appendChild(rangeWrap);
       grid.appendChild(wrap);
       return;
@@ -227,6 +241,7 @@ function clearConditions() {
 
 function formatDateRange(value) {
   if (!value) return '';
+  if (value === 'NA') return '비대상';
   const [start, end] = value.split('~');
   if (start && end) return `${start} ~ ${end}`;
   if (start) return `${start} ~`;
@@ -244,7 +259,8 @@ function getFiltered() {
     FIELDS.every((f) => {
       const fv = (filters[f.key] || '').toLowerCase();
       if (!fv) return true;
-      const val = (r[f.key] || '').toString().toLowerCase();
+      const raw = f.type === 'daterange' ? formatDateRange(r[f.key]) : r[f.key];
+      const val = (raw || '').toString().toLowerCase();
       return val.includes(fv);
     })
   );
@@ -261,8 +277,8 @@ function getSorted(list) {
       av = av ? new Date(av).getTime() : -Infinity;
       bv = bv ? new Date(bv).getTime() : -Infinity;
     } else if (field && field.type === 'daterange') {
-      const aStart = (av || '').split('~')[0];
-      const bStart = (bv || '').split('~')[0];
+      const aStart = av === 'NA' ? '' : (av || '').split('~')[0];
+      const bStart = bv === 'NA' ? '' : (bv || '').split('~')[0];
       av = aStart ? new Date(aStart).getTime() : -Infinity;
       bv = bStart ? new Date(bStart).getTime() : -Infinity;
     } else {
@@ -352,6 +368,13 @@ function openAdd() {
   editingId = null;
   el('#modalTitle').textContent = '신규 등록';
   el('#recordForm').reset();
+  FIELDS.forEach((f) => {
+    if (f.type === 'daterange') {
+      el('#field_' + f.key + '_na').checked = false;
+      el('#field_' + f.key + '_start').disabled = false;
+      el('#field_' + f.key + '_end').disabled = false;
+    }
+  });
   el('#modalOverlay').classList.remove('hidden');
 }
 
@@ -360,7 +383,12 @@ function openEdit(record) {
   el('#modalTitle').textContent = '수정';
   FIELDS.forEach((f) => {
     if (f.type === 'daterange') {
-      const [start, end] = (record[f.key] || '').split('~');
+      const raw = record[f.key] || '';
+      const isNA = raw === 'NA';
+      const [start, end] = isNA ? ['', ''] : raw.split('~');
+      el('#field_' + f.key + '_na').checked = isNA;
+      el('#field_' + f.key + '_start').disabled = isNA;
+      el('#field_' + f.key + '_end').disabled = isNA;
       el('#field_' + f.key + '_start').value = start || '';
       el('#field_' + f.key + '_end').value = end || '';
     } else {
@@ -406,9 +434,13 @@ async function onSubmit(e) {
   const payload = {};
   FIELDS.forEach((f) => {
     if (f.type === 'daterange') {
-      const start = el('#field_' + f.key + '_start').value;
-      const end = el('#field_' + f.key + '_end').value;
-      payload[f.key] = start || end ? `${start}~${end}` : '';
+      if (el('#field_' + f.key + '_na').checked) {
+        payload[f.key] = 'NA';
+      } else {
+        const start = el('#field_' + f.key + '_start').value;
+        const end = el('#field_' + f.key + '_end').value;
+        payload[f.key] = start || end ? `${start}~${end}` : '';
+      }
     } else {
       payload[f.key] = el('#field_' + f.key).value;
     }

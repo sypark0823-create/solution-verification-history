@@ -355,10 +355,31 @@ tbody tr td.col-action {
   border-color: var(--primary);
 }
 
+.daterange-inputs input[type="date"]:disabled {
+  background: var(--header-bg);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .daterange-sep {
   color: var(--muted);
   font-size: 12px;
   flex-shrink: 0;
+}
+
+.daterange-na-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.daterange-na-label input[type="checkbox"] {
+  cursor: pointer;
 }
 
 .condition-panel {
