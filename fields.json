@@ -21,5 +21,6 @@
   { "key": "cxPeriod", "label": "CX검증", "type": "daterange" },
   { "key": "codeQualityPeriod", "label": "코드품질", "type": "daterange" },
   { "key": "result", "label": "수행결과", "type": "select", "options": ["PASS", "FAIL"] },
-  { "key": "qualityManager", "label": "품질담당자", "type": "text" }
+  { "key": "qualityManager", "label": "품질담당자", "type": "text" },
+  { "key": "devLeader", "label": "개발리더", "type": "text" }
 ]

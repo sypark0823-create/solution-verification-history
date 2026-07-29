@@ -2,8 +2,9 @@ let FIELDS = [];
 let records = [];
 let filters = {};
 let sortState = { key: null, dir: null };
-let editingRowId = null;
-let addingNew = false;
+let editingRowIds = new Set();
+let newRows = [];
+let newRowSeq = 0;
 
 const el = (sel) => document.querySelector(sel);
 
@@ -34,7 +35,6 @@ function iconButton(iconKey, label, extraClass) {
 async function init() {
   FIELDS = await fetch('/api/fields').then((r) => r.json());
   buildHeader();
-  addConditionRow();
   await loadRecords();
   bindEvents();
 }
@@ -191,99 +191,6 @@ function readRowValues(tr) {
   return payload;
 }
 
-function createConditionValueInput(field) {
-  let input;
-  if (field.type === 'select') {
-    input = document.createElement('select');
-    const allOpt = document.createElement('option');
-    allOpt.value = '';
-    allOpt.textContent = '전체';
-    input.appendChild(allOpt);
-    field.options.forEach((opt) => {
-      const o = document.createElement('option');
-      o.value = opt;
-      o.textContent = opt;
-      input.appendChild(o);
-    });
-  } else if (field.type === 'date') {
-    input = document.createElement('input');
-    input.type = 'date';
-  } else {
-    input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = '검색어 입력';
-  }
-  input.className = 'condition-value';
-  return input;
-}
-
-function clearFilterForKey(key) {
-  filters[key] = '';
-  const colInput = document.querySelector(`.filter-input[data-key="${key}"]`);
-  if (colInput) colInput.value = '';
-}
-
-function addConditionRow() {
-  const rows = el('#conditionRows');
-  const row = document.createElement('div');
-  row.className = 'condition-row';
-
-  const fieldSelect = document.createElement('select');
-  fieldSelect.className = 'condition-field';
-  FIELDS.forEach((f) => {
-    const opt = document.createElement('option');
-    opt.value = f.key;
-    opt.textContent = f.label;
-    fieldSelect.appendChild(opt);
-  });
-
-  const valueWrap = document.createElement('div');
-  valueWrap.className = 'condition-value-wrap';
-
-  const renderValueInput = () => {
-    valueWrap.innerHTML = '';
-    const field = FIELDS.find((f) => f.key === fieldSelect.value);
-    valueWrap.appendChild(createConditionValueInput(field));
-  };
-  renderValueInput();
-  fieldSelect.addEventListener('change', renderValueInput);
-
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'btn-small condition-remove';
-  removeBtn.textContent = '✕';
-  removeBtn.addEventListener('click', () => {
-    clearFilterForKey(fieldSelect.value);
-    row.remove();
-    render();
-  });
-
-  row.appendChild(fieldSelect);
-  row.appendChild(valueWrap);
-  row.appendChild(removeBtn);
-  rows.appendChild(row);
-}
-
-function applyConditions() {
-  document.querySelectorAll('#conditionRows .condition-row').forEach((row) => {
-    const key = row.querySelector('.condition-field').value;
-    const value = row.querySelector('.condition-value').value.trim();
-    filters[key] = value;
-    const colInput = document.querySelector(`.filter-input[data-key="${key}"]`);
-    if (colInput) colInput.value = value;
-  });
-  render();
-}
-
-function clearConditions() {
-  document.querySelectorAll('#conditionRows .condition-row').forEach((row) => {
-    const key = row.querySelector('.condition-field').value;
-    row.querySelector('.condition-value').value = '';
-    clearFilterForKey(key);
-  });
-  render();
-}
-
 function formatDateRange(value) {
   if (!value) return '';
   if (value === 'NA') return '비대상';
@@ -373,8 +280,7 @@ function buildRow(r) {
   tdAction.className = 'col-action';
   const editBtn = iconButton('edit', '수정', 'icon-edit');
   editBtn.addEventListener('click', () => {
-    addingNew = false;
-    editingRowId = r.id;
+    editingRowIds.add(r.id);
     render();
   });
   const delBtn = iconButton('delete', '삭제', 'icon-delete');
@@ -409,18 +315,20 @@ function buildRow(r) {
   return tr;
 }
 
-function buildEditableRow(record, isNew) {
+function buildEditableRow(record, isNew, tempId) {
   const tr = document.createElement('tr');
   tr.className = 'editing-row';
+  if (isNew) tr.dataset.tempId = tempId;
+  else tr.dataset.recordId = record.id;
 
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
   const saveBtn = iconButton('save', '저장', 'icon-save');
-  saveBtn.addEventListener('click', () => saveRow(tr, record, isNew));
+  saveBtn.addEventListener('click', () => saveRow(tr, record, isNew, tempId));
   const cancelBtn = iconButton('cancel', '취소', 'icon-cancel');
   cancelBtn.addEventListener('click', () => {
-    if (isNew) addingNew = false;
-    else editingRowId = null;
+    if (isNew) newRows = newRows.filter((nr) => nr.tempId !== tempId);
+    else editingRowIds.delete(record.id);
     render();
   });
   tdAction.appendChild(saveBtn);
@@ -441,8 +349,19 @@ function buildEditableRow(record, isNew) {
   return tr;
 }
 
-async function saveRow(tr, record, isNew) {
+async function saveRow(tr, record, isNew, tempId) {
   const payload = readRowValues(tr);
+  const label = payload.solutionName || record.solutionName || '이 항목';
+  const message = isNew
+    ? `'${label}' 항목을 등록하시겠습니까?`
+    : `'${label}' 항목의 변경사항을 저장하시겠습니까?`;
+  const confirmed = await showConfirm(message, {
+    title: isNew ? '등록 확인' : '수정 확인',
+    okLabel: isNew ? '등록' : '저장',
+    danger: false,
+  });
+  if (!confirmed) return;
+
   if (isNew) {
     const created = await fetch('/api/records', {
       method: 'POST',
@@ -450,7 +369,7 @@ async function saveRow(tr, record, isNew) {
       body: JSON.stringify(payload),
     }).then((r) => r.json());
     records.push(created);
-    addingNew = false;
+    newRows = newRows.filter((nr) => nr.tempId !== tempId);
   } else {
     const updated = await fetch(`/api/records/${record.id}`, {
       method: 'PUT',
@@ -459,8 +378,53 @@ async function saveRow(tr, record, isNew) {
     }).then((r) => r.json());
     const idx = records.findIndex((rec) => rec.id === record.id);
     records[idx] = updated;
-    editingRowId = null;
+    editingRowIds.delete(record.id);
   }
+  render();
+}
+
+async function saveAllPending() {
+  const pendingCount = newRows.length + editingRowIds.size;
+  if (pendingCount === 0) return;
+
+  const confirmed = await showConfirm(`작성 중인 ${pendingCount}건을 일괄 저장하시겠습니까?`, {
+    title: '일괄 저장 확인',
+    okLabel: '일괄 저장',
+    danger: false,
+  });
+  if (!confirmed) return;
+
+  const editingRowEls = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
+  const tasks = editingRowEls.map((tr) => {
+    const payload = readRowValues(tr);
+    if (tr.dataset.tempId) {
+      const tempId = tr.dataset.tempId;
+      return fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then((r) => r.json())
+        .then((created) => {
+          records.push(created);
+          newRows = newRows.filter((nr) => String(nr.tempId) !== tempId);
+        });
+    }
+    const id = tr.dataset.recordId;
+    return fetch(`/api/records/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((r) => r.json())
+      .then((updated) => {
+        const idx = records.findIndex((rec) => rec.id === id);
+        records[idx] = updated;
+        editingRowIds.delete(id);
+      });
+  });
+
+  await Promise.all(tasks);
   render();
 }
 
@@ -469,13 +433,12 @@ function render() {
   const tbody = el('#tableBody');
   tbody.innerHTML = '';
 
-  if (addingNew) {
-    const newRow = buildEditableRow({}, true);
-    tbody.appendChild(newRow);
-  }
+  newRows.forEach((nr) => {
+    tbody.appendChild(buildEditableRow({}, true, nr.tempId));
+  });
 
   filtered.forEach((r) => {
-    if (!addingNew && r.id === editingRowId) {
+    if (editingRowIds.has(r.id)) {
       tbody.appendChild(buildEditableRow(r, false));
     } else {
       tbody.appendChild(buildRow(r));
@@ -485,24 +448,29 @@ function render() {
   el('#recordCount').textContent = `전체 ${records.length}건 중 ${filtered.length}건 표시`;
   updateSortIndicators();
 
-  if (addingNew) {
-    const firstInput = tbody.querySelector('tr.editing-row input, tr.editing-row select');
+  if (newRows.length > 0) {
+    const lastTempId = String(newRows[newRows.length - 1].tempId);
+    const lastRow = tbody.querySelector(`tr.editing-row[data-temp-id="${lastTempId}"]`);
+    const firstInput = lastRow && lastRow.querySelector('input, select');
     if (firstInput) firstInput.focus();
   }
 }
 
 function startAdd() {
-  editingRowId = null;
-  addingNew = true;
+  newRows.push({ tempId: ++newRowSeq });
   render();
 }
 
-function showConfirm(message) {
+function showConfirm(message, options) {
+  const { title = '확인', okLabel = '확인', danger = true } = options || {};
   return new Promise((resolve) => {
+    el('#confirmTitle').textContent = title;
     el('#confirmMessage').textContent = message;
     el('#confirmOverlay').classList.remove('hidden');
 
     const okBtn = el('#confirmOkBtn');
+    okBtn.textContent = okLabel;
+    okBtn.className = 'btn ' + (danger ? 'btn-danger-solid' : 'btn-primary');
     const cancelBtn = el('#confirmCancelBtn');
 
     const cleanup = (result) => {
@@ -526,7 +494,11 @@ function showConfirm(message) {
 
 async function onDelete(record) {
   const label = record.solutionName || record.releaseName || '이 항목';
-  const confirmed = await showConfirm(`'${label}' 항목을 삭제하시겠습니까?`);
+  const confirmed = await showConfirm(`'${label}' 항목을 삭제하시겠습니까?`, {
+    title: '삭제 확인',
+    okLabel: '삭제',
+    danger: true,
+  });
   if (!confirmed) return;
   await fetch(`/api/records/${record.id}`, { method: 'DELETE' });
   records = records.filter((r) => r.id !== record.id);
@@ -536,23 +508,20 @@ async function onDelete(record) {
 function resetFilters() {
   filters = {};
   document.querySelectorAll('.filter-input').forEach((i) => (i.value = ''));
-  document.querySelectorAll('.condition-value').forEach((i) => (i.value = ''));
   render();
 }
 
 function bindEvents() {
   el('#addBtn').addEventListener('click', startAdd);
+  el('#bulkSaveBtn').addEventListener('click', saveAllPending);
   el('#exportBtn').addEventListener('click', () => {
     window.location.href = '/api/export';
   });
   el('#resetFiltersBtn').addEventListener('click', resetFilters);
-  el('#addConditionBtn').addEventListener('click', () => addConditionRow());
-  el('#searchBtn').addEventListener('click', applyConditions);
-  el('#clearConditionsBtn').addEventListener('click', clearConditions);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && (addingNew || editingRowId !== null)) {
-      addingNew = false;
-      editingRowId = null;
+    if (e.key === 'Escape' && (newRows.length > 0 || editingRowIds.size > 0)) {
+      newRows = [];
+      editingRowIds.clear();
       render();
     }
   });

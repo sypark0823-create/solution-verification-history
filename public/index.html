@@ -13,22 +13,12 @@
     <span id="recordCount" class="count"></span>
     <button id="resetFiltersBtn" class="btn btn-secondary" type="button">필터 초기화</button>
     <button id="exportBtn" class="btn btn-secondary" type="button">엑셀 다운로드</button>
-    <button id="addBtn" class="btn btn-primary" type="button">+ 신규 등록</button>
+    <button id="addBtn" class="btn btn-secondary" type="button">+ 신규 등록</button>
+    <button id="bulkSaveBtn" class="btn btn-primary" type="button">일괄 저장</button>
   </div>
 </header>
 
 <main>
-  <section class="condition-panel">
-    <div class="condition-line">
-      <div id="conditionRows" class="condition-rows"></div>
-      <div class="condition-actions">
-        <button type="button" id="addConditionBtn" class="btn btn-secondary">+ 조건 추가</button>
-        <button type="button" id="clearConditionsBtn" class="btn btn-secondary">조건 초기화</button>
-        <button type="button" id="searchBtn" class="btn btn-primary">조회</button>
-      </div>
-    </div>
-  </section>
-
   <div class="table-wrap">
     <table id="dataTable">
       <thead>
@@ -43,14 +33,14 @@
 <div id="confirmOverlay" class="modal-overlay hidden">
   <div class="modal confirm-modal">
     <div class="modal-header">
-      <h2>삭제 확인</h2>
+      <h2 id="confirmTitle">확인</h2>
     </div>
     <div class="confirm-body">
       <p id="confirmMessage"></p>
     </div>
     <div class="modal-footer">
       <button type="button" id="confirmCancelBtn" class="btn btn-secondary">취소</button>
-      <button type="button" id="confirmOkBtn" class="btn btn-danger-solid">삭제</button>
+      <button type="button" id="confirmOkBtn" class="btn btn-danger-solid">확인</button>
     </div>
   </div>
 </div>

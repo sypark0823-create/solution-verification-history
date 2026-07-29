@@ -352,10 +352,10 @@ textarea.inline-input {
 
 .modal {
   background: #fff;
-  border-radius: 10px;
+  border-radius: 8px;
   width: 100%;
   max-width: 760px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .modal-header {
@@ -449,81 +449,3 @@ textarea.inline-input {
   cursor: pointer;
 }
 
-.condition-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-}
-
-.condition-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.condition-rows {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.condition-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.condition-field {
-  width: 140px;
-  flex-shrink: 0;
-  padding: 7px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.condition-value-wrap {
-  width: 150px;
-  flex-shrink: 0;
-}
-
-.condition-value {
-  width: 100%;
-  padding: 7px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: inherit;
-}
-
-.condition-value:focus,
-.condition-field:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-
-.condition-remove {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 6px;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-.condition-remove:hover {
-  background: #fef2f2;
-  color: var(--danger);
-  border-color: #f3c2c2;
-}
-
-.condition-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
