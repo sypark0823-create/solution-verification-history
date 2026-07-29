@@ -212,12 +212,26 @@ tr.editing-row {
 tr.editing-row:hover {
   background: var(--edit-bg);
 }
+
+#tableBody tr.row-auto-progress {
+  background: #fff6d6;
+}
+#tableBody tr.row-auto-progress:hover {
+  background: #ffefaf;
+}
+#tableBody tr.row-done {
+  background: #f1f2f4;
+}
+#tableBody tr.row-done:hover {
+  background: #e6e7ea;
+}
 tr.editing-row td {
   border-bottom-color: #bfdbfe;
 }
 
 td.col-editing {
   white-space: nowrap;
+  max-width: none;
   overflow: visible;
   padding: 6px 8px;
   vertical-align: middle;
@@ -236,6 +250,10 @@ select.inline-input {
   width: 110px;
 }
 
+input[type="date"].inline-input {
+  width: 150px;
+}
+
 textarea.inline-input {
   width: 180px;
   resize: vertical;
@@ -244,6 +262,12 @@ textarea.inline-input {
 .inline-input:focus {
   outline: none;
   border-color: var(--primary);
+}
+
+.inline-input:disabled {
+  background: var(--header-bg);
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 .icon-action-btn {
@@ -409,7 +433,7 @@ textarea.inline-input {
 
 .daterange-inputs input[type="date"] {
   flex: 1;
-  min-width: 0;
+  min-width: 130px;
   padding: 8px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;

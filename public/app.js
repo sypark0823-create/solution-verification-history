@@ -15,6 +15,8 @@ const ICONS = {
   cancel: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>',
 };
 
+const NO_BADGE_KEYS = new Set(['year', 'month', 'verificationCriteria', 'solutionType', 'verificationOrg']);
+
 const STATUS_DOT_CLASS = {
   계획: 'status-plan',
   진행: 'status-progress',
@@ -37,6 +39,7 @@ async function init() {
   buildHeader();
   await loadRecords();
   bindEvents();
+  await checkAutoStatusSuggestions();
 }
 
 function buildHeader() {
@@ -94,12 +97,101 @@ function buildHeader() {
   });
 }
 
+const AUTO_TARGET_KEY = 'targetCompletionDate';
+const PERIOD_KEYS = [
+  'functionalPeriod',
+  'performancePeriod',
+  'securityPeriod',
+  'licensePeriod',
+  'cxPeriod',
+  'codeQualityPeriod',
+];
+
+function todayISO() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function hasStartedVerification(r) {
+  const today = todayISO();
+  return PERIOD_KEYS.some((key) => {
+    const val = r[key];
+    if (!val || val === 'NA') return false;
+    const start = val.split('~')[0];
+    return start && start <= today;
+  });
+}
+
+function summarizeNames(items, max) {
+  const names = items.map((r) => r.solutionName || '(이름없음)');
+  if (names.length <= max) return names.join(', ');
+  return names.slice(0, max).join(', ') + ` 외 ${names.length - max}건`;
+}
+
+async function applyStatusChange(items, status) {
+  await Promise.all(
+    items.map((r) =>
+      fetch(`/api/records/${r.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+        .then((res) => res.json())
+        .then((updated) => {
+          const idx = records.findIndex((rec) => rec.id === r.id);
+          if (idx !== -1) records[idx] = updated;
+        })
+    )
+  );
+}
+
+function suggestStatusForRecord(r) {
+  if ((r.result === 'PASS' || r.result === 'FAIL') && (r.status === '계획' || r.status === '진행')) {
+    return '완료';
+  }
+  if (!hasStartedVerification(r) && (r.status === '진행' || r.status === '완료')) {
+    return '계획';
+  }
+  return null;
+}
+
+async function checkAutoStatusSuggestions() {
+  const toComplete = records.filter((r) => suggestStatusForRecord(r) === '완료');
+  if (toComplete.length > 0) {
+    const confirmed = await showConfirm(
+      `수행결과가 등록되었지만 진행상태가 완료가 아닌 항목이 ${toComplete.length}건 있습니다 (${summarizeNames(toComplete, 5)}). 진행상태를 '완료'로 변경하시겠습니까?`,
+      { title: '진행상태 확인', okLabel: '완료로 변경', danger: false }
+    );
+    if (confirmed) {
+      await applyStatusChange(toComplete, '완료');
+      render();
+    }
+  }
+
+  const toPlan = records.filter((r) => suggestStatusForRecord(r) === '계획');
+  if (toPlan.length > 0) {
+    const confirmed = await showConfirm(
+      `검증기간이 아직 시작되지 않았는데 진행상태가 진행/완료로 되어 있는 항목이 ${toPlan.length}건 있습니다 (${summarizeNames(toPlan, 5)}). 진행상태를 '계획'으로 변경하시겠습니까?`,
+      { title: '진행상태 확인', okLabel: '계획으로 변경', danger: false }
+    );
+    if (confirmed) {
+      await applyStatusChange(toPlan, '계획');
+      render();
+    }
+  }
+}
+
 function createFieldInput(field, value) {
   let input;
   if (field.type === 'date') {
     input = document.createElement('input');
     input.type = 'date';
     input.value = value || '';
+    if (field.key === AUTO_TARGET_KEY) {
+      input.disabled = true;
+    }
   } else if (field.type === 'select') {
     input = document.createElement('select');
     const emptyOpt = document.createElement('option');
@@ -151,6 +243,17 @@ function createDaterangeCell(field, value) {
   endInput.dataset.key = field.key;
   endInput.dataset.part = 'end';
 
+  const normalizeOrder = () => {
+    if (startInput.value && endInput.value && startInput.value > endInput.value) {
+      const swapped = startInput.value;
+      startInput.value = endInput.value;
+      endInput.value = swapped;
+      endInput.dispatchEvent(new Event('change'));
+    }
+  };
+  startInput.addEventListener('change', normalizeOrder);
+  endInput.addEventListener('change', normalizeOrder);
+
   const naLabel = document.createElement('label');
   naLabel.className = 'daterange-na-label';
   const naCheckbox = document.createElement('input');
@@ -172,6 +275,21 @@ function createDaterangeCell(field, value) {
   return wrap;
 }
 
+function recalcTargetCompletionDate(tr) {
+  const targetInput = tr.querySelector(`[data-key="${AUTO_TARGET_KEY}"]`);
+  if (!targetInput) return;
+  let latest = '';
+  PERIOD_KEYS.forEach((key) => {
+    const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
+    if (naCb && naCb.checked) return;
+    const endInput = tr.querySelector(`[data-key="${key}"][data-part="end"]`);
+    if (endInput && endInput.value && endInput.value > latest) {
+      latest = endInput.value;
+    }
+  });
+  targetInput.value = latest;
+}
+
 function readRowValues(tr) {
   const payload = {};
   FIELDS.forEach((f) => {
@@ -180,8 +298,11 @@ function readRowValues(tr) {
       if (naCb.checked) {
         payload[f.key] = 'NA';
       } else {
-        const start = tr.querySelector(`[data-key="${f.key}"][data-part="start"]`).value;
-        const end = tr.querySelector(`[data-key="${f.key}"][data-part="end"]`).value;
+        let start = tr.querySelector(`[data-key="${f.key}"][data-part="start"]`).value;
+        let end = tr.querySelector(`[data-key="${f.key}"][data-part="end"]`).value;
+        if (start && end && start > end) {
+          [start, end] = [end, start];
+        }
         payload[f.key] = start || end ? `${start}~${end}` : '';
       }
     } else {
@@ -276,6 +397,10 @@ function updateSortIndicators() {
 function buildRow(r) {
   const tr = document.createElement('tr');
 
+  const autoInProgress = hasStartedVerification(r) && r.status !== '완료' && r.status !== '취소';
+  if (autoInProgress) tr.classList.add('row-auto-progress');
+  if (r.status === '완료') tr.classList.add('row-done');
+
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
   const editBtn = iconButton('edit', '수정', 'icon-edit');
@@ -291,7 +416,8 @@ function buildRow(r) {
 
   FIELDS.forEach((f) => {
     const td = document.createElement('td');
-    const value = r[f.key] || '';
+    let value = r[f.key] || '';
+    if (f.key === 'status' && autoInProgress) value = '진행';
     if (f.type === 'daterange') {
       td.textContent = formatDateRange(value);
     } else if (f.key === 'status' && value) {
@@ -299,7 +425,7 @@ function buildRow(r) {
       dot.className = 'status-dot ' + (STATUS_DOT_CLASS[value] || '');
       td.appendChild(dot);
       td.appendChild(document.createTextNode(value));
-    } else if (f.type === 'select' && value) {
+    } else if (f.type === 'select' && value && !NO_BADGE_KEYS.has(f.key)) {
       const badge = document.createElement('span');
       const resultClass = f.key === 'result' ? (value === 'PASS' ? ' badge-pass' : ' badge-fail') : '';
       badge.className = 'badge' + resultClass;
@@ -346,15 +472,43 @@ function buildEditableRow(record, isNew, tempId) {
     tr.appendChild(td);
   });
 
+  const recalc = () => recalcTargetCompletionDate(tr);
+  PERIOD_KEYS.forEach((key) => {
+    const endInput = tr.querySelector(`[data-key="${key}"][data-part="end"]`);
+    const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
+    if (endInput) {
+      endInput.addEventListener('input', recalc);
+      endInput.addEventListener('change', recalc);
+    }
+    if (naCb) naCb.addEventListener('change', recalc);
+  });
+  recalc();
+
   return tr;
 }
 
 async function saveRow(tr, record, isNew, tempId) {
   const payload = readRowValues(tr);
+  const suggestedStatus = suggestStatusForRecord(payload);
+  if (suggestedStatus) payload.status = suggestedStatus;
+
   const label = payload.solutionName || record.solutionName || '이 항목';
-  const message = isNew
+
+  const wasResultSet = record.result === 'PASS' || record.result === 'FAIL';
+  const resultCleared = wasResultSet && !payload.result;
+  if (!isNew && resultCleared && payload.status === '완료') {
+    await showAlert(
+      `'${label}' 항목의 수행결과가 삭제되었습니다. 진행상태가 '완료'로 되어 있으니 상태값을 다시 확인해 주세요.`,
+      { title: '진행상태 확인 필요' }
+    );
+  }
+
+  let message = isNew
     ? `'${label}' 항목을 등록하시겠습니까?`
     : `'${label}' 항목의 변경사항을 저장하시겠습니까?`;
+  if (suggestedStatus) {
+    message += ` (진행상태가 '${suggestedStatus}'(으)로 자동 반영됩니다)`;
+  }
   const confirmed = await showConfirm(message, {
     title: isNew ? '등록 확인' : '수정 확인',
     okLabel: isNew ? '등록' : '저장',
@@ -387,16 +541,44 @@ async function saveAllPending() {
   const pendingCount = newRows.length + editingRowIds.size;
   if (pendingCount === 0) return;
 
-  const confirmed = await showConfirm(`작성 중인 ${pendingCount}건을 일괄 저장하시겠습니까?`, {
+  const editingRowEls = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
+  const rowPayloads = editingRowEls.map((tr) => {
+    const payload = readRowValues(tr);
+    const suggestedStatus = suggestStatusForRecord(payload);
+    if (suggestedStatus) payload.status = suggestedStatus;
+    return { tr, payload, suggestedStatus };
+  });
+  const autoAdjustedCount = rowPayloads.filter((rp) => rp.suggestedStatus).length;
+
+  const staleCompleteNames = rowPayloads
+    .filter(({ tr, payload }) => {
+      const id = tr.dataset.recordId;
+      if (!id) return false;
+      const original = records.find((rec) => rec.id === id);
+      const wasResultSet = original && (original.result === 'PASS' || original.result === 'FAIL');
+      return wasResultSet && !payload.result && payload.status === '완료';
+    })
+    .map(({ payload }) => payload.solutionName || '(이름없음)');
+  if (staleCompleteNames.length > 0) {
+    await showAlert(
+      `수행결과가 삭제되었지만 진행상태가 '완료'로 되어 있는 항목이 있습니다 (${staleCompleteNames.join(', ')}). 상태값을 다시 확인해 주세요.`,
+      { title: '진행상태 확인 필요' }
+    );
+  }
+
+  let message = `작성 중인 ${pendingCount}건을 일괄 저장하시겠습니까?`;
+  if (autoAdjustedCount > 0) {
+    message += ` (${autoAdjustedCount}건은 진행상태가 자동 반영됩니다)`;
+  }
+
+  const confirmed = await showConfirm(message, {
     title: '일괄 저장 확인',
     okLabel: '일괄 저장',
     danger: false,
   });
   if (!confirmed) return;
 
-  const editingRowEls = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
-  const tasks = editingRowEls.map((tr) => {
-    const payload = readRowValues(tr);
+  const tasks = rowPayloads.map(({ tr, payload }) => {
     if (tr.dataset.tempId) {
       const tempId = tr.dataset.tempId;
       return fetch('/api/records', {
@@ -462,7 +644,7 @@ function startAdd() {
 }
 
 function showConfirm(message, options) {
-  const { title = '확인', okLabel = '확인', danger = true } = options || {};
+  const { title = '확인', okLabel = '확인', danger = true, alertOnly = false } = options || {};
   return new Promise((resolve) => {
     el('#confirmTitle').textContent = title;
     el('#confirmMessage').textContent = message;
@@ -472,9 +654,11 @@ function showConfirm(message, options) {
     okBtn.textContent = okLabel;
     okBtn.className = 'btn ' + (danger ? 'btn-danger-solid' : 'btn-primary');
     const cancelBtn = el('#confirmCancelBtn');
+    cancelBtn.style.display = alertOnly ? 'none' : '';
 
     const cleanup = (result) => {
       el('#confirmOverlay').classList.add('hidden');
+      cancelBtn.style.display = '';
       okBtn.removeEventListener('click', onOk);
       cancelBtn.removeEventListener('click', onCancel);
       el('#confirmOverlay').removeEventListener('click', onOverlayClick);
@@ -483,6 +667,7 @@ function showConfirm(message, options) {
     const onOk = () => cleanup(true);
     const onCancel = () => cleanup(false);
     const onOverlayClick = (e) => {
+      if (alertOnly) return;
       if (e.target.id === 'confirmOverlay') cleanup(false);
     };
 
@@ -490,6 +675,10 @@ function showConfirm(message, options) {
     cancelBtn.addEventListener('click', onCancel);
     el('#confirmOverlay').addEventListener('click', onOverlayClick);
   });
+}
+
+async function showAlert(message, options) {
+  await showConfirm(message, { ...options, alertOnly: true });
 }
 
 async function onDelete(record) {
