@@ -10,7 +10,8 @@
   --danger-hover: #b91c1c;
   --header-bg: #eef2f7;
   --row-alt: #fafbfc;
-  --row-hover: #eef4ff;
+  --row-hover: #f0f7ff;
+  --edit-bg: #f0f7ff;
 }
 
 * {
@@ -206,10 +207,13 @@ tbody tr td.col-action {
 }
 
 tr.editing-row {
-  background: #fffbea;
+  background: var(--edit-bg);
 }
 tr.editing-row:hover {
-  background: #fffbea;
+  background: var(--edit-bg);
+}
+tr.editing-row td {
+  border-bottom-color: #bfdbfe;
 }
 
 td.col-editing {
@@ -242,13 +246,91 @@ textarea.inline-input {
   border-color: var(--primary);
 }
 
-.btn-save {
-  color: var(--primary);
-  border-color: #bfdbfe;
+.icon-action-btn {
+  border: none;
+  background: transparent;
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  vertical-align: middle;
 }
-.btn-save:hover {
+
+.icon-edit {
+  color: var(--muted);
+}
+.icon-edit:hover {
+  background: var(--header-bg);
+  color: var(--primary);
+}
+
+.icon-delete {
+  color: var(--muted);
+}
+.icon-delete:hover {
+  background: #fef2f2;
+  color: var(--danger);
+}
+
+.icon-save {
+  color: var(--primary);
+}
+.icon-save:hover {
   background: #eff6ff;
-  border-color: var(--primary);
+}
+
+.icon-cancel {
+  color: var(--danger);
+}
+.icon-cancel:hover {
+  background: #fef2f2;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  background: var(--header-bg);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.badge-pass {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-fail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--muted);
+}
+
+.status-dot.status-plan {
+  background: #94a3b8;
+}
+.status-dot.status-progress {
+  background: #3b82f6;
+}
+.status-dot.status-done {
+  background: #22c55e;
+}
+.status-dot.status-cancel {
+  background: #ef4444;
 }
 
 /* Modal */

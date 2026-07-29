@@ -7,6 +7,30 @@ let addingNew = false;
 
 const el = (sel) => document.querySelector(sel);
 
+const ICONS = {
+  edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>',
+  delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+  save: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>',
+  cancel: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>',
+};
+
+const STATUS_DOT_CLASS = {
+  계획: 'status-plan',
+  진행: 'status-progress',
+  완료: 'status-done',
+  취소: 'status-cancel',
+};
+
+function iconButton(iconKey, label, extraClass) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'icon-action-btn ' + extraClass;
+  btn.innerHTML = ICONS[iconKey];
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  return btn;
+}
+
 async function init() {
   FIELDS = await fetch('/api/fields').then((r) => r.json());
   buildHeader();
@@ -347,19 +371,13 @@ function buildRow(r) {
 
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
-  const editBtn = document.createElement('button');
-  editBtn.textContent = '수정';
-  editBtn.type = 'button';
-  editBtn.className = 'btn-small';
+  const editBtn = iconButton('edit', '수정', 'icon-edit');
   editBtn.addEventListener('click', () => {
     addingNew = false;
     editingRowId = r.id;
     render();
   });
-  const delBtn = document.createElement('button');
-  delBtn.textContent = '삭제';
-  delBtn.type = 'button';
-  delBtn.className = 'btn-small btn-danger';
+  const delBtn = iconButton('delete', '삭제', 'icon-delete');
   delBtn.addEventListener('click', () => onDelete(r));
   tdAction.appendChild(editBtn);
   tdAction.appendChild(delBtn);
@@ -367,10 +385,22 @@ function buildRow(r) {
 
   FIELDS.forEach((f) => {
     const td = document.createElement('td');
+    const value = r[f.key] || '';
     if (f.type === 'daterange') {
-      td.textContent = formatDateRange(r[f.key]);
+      td.textContent = formatDateRange(value);
+    } else if (f.key === 'status' && value) {
+      const dot = document.createElement('span');
+      dot.className = 'status-dot ' + (STATUS_DOT_CLASS[value] || '');
+      td.appendChild(dot);
+      td.appendChild(document.createTextNode(value));
+    } else if (f.type === 'select' && value) {
+      const badge = document.createElement('span');
+      const resultClass = f.key === 'result' ? (value === 'PASS' ? ' badge-pass' : ' badge-fail') : '';
+      badge.className = 'badge' + resultClass;
+      badge.textContent = value;
+      td.appendChild(badge);
     } else {
-      td.textContent = r[f.key] || '';
+      td.textContent = value;
     }
     if (f.type === 'textarea') td.classList.add('col-wide');
     tr.appendChild(td);
@@ -385,15 +415,9 @@ function buildEditableRow(record, isNew) {
 
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'btn-small btn-save';
-  saveBtn.textContent = '저장';
+  const saveBtn = iconButton('save', '저장', 'icon-save');
   saveBtn.addEventListener('click', () => saveRow(tr, record, isNew));
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'btn-small';
-  cancelBtn.textContent = '취소';
+  const cancelBtn = iconButton('cancel', '취소', 'icon-cancel');
   cancelBtn.addEventListener('click', () => {
     if (isNew) addingNew = false;
     else editingRowId = null;
