@@ -2,14 +2,14 @@ let FIELDS = [];
 let records = [];
 let filters = {};
 let sortState = { key: null, dir: null };
-let editingId = null;
+let editingRowId = null;
+let addingNew = false;
 
 const el = (sel) => document.querySelector(sel);
 
 async function init() {
   FIELDS = await fetch('/api/fields').then((r) => r.json());
   buildHeader();
-  buildFormGrid();
   addConditionRow();
   await loadRecords();
   bindEvents();
@@ -70,80 +70,101 @@ function buildHeader() {
   });
 }
 
-function buildFormGrid() {
-  const grid = el('#formGrid');
-  grid.innerHTML = '';
-  FIELDS.forEach((f) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'form-field' + (f.type === 'textarea' ? ' full-width' : '');
-    const label = document.createElement('label');
-    label.textContent = f.label;
-    wrap.appendChild(label);
+function createFieldInput(field, value) {
+  let input;
+  if (field.type === 'date') {
+    input = document.createElement('input');
+    input.type = 'date';
+    input.value = value || '';
+  } else if (field.type === 'select') {
+    input = document.createElement('select');
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '선택';
+    input.appendChild(emptyOpt);
+    field.options.forEach((opt) => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      input.appendChild(o);
+    });
+    input.value = value || '';
+  } else if (field.type === 'textarea') {
+    input = document.createElement('textarea');
+    input.rows = 2;
+    input.value = value || '';
+  } else {
+    input = document.createElement('input');
+    input.type = 'text';
+    input.value = value || '';
+  }
+  input.className = 'inline-input';
+  input.dataset.key = field.key;
+  return input;
+}
 
-    if (f.type === 'daterange') {
-      label.htmlFor = 'field_' + f.key + '_start';
-      const rangeWrap = document.createElement('div');
-      rangeWrap.className = 'daterange-inputs';
-      const startInput = document.createElement('input');
-      startInput.type = 'date';
-      startInput.id = 'field_' + f.key + '_start';
-      const sep = document.createElement('span');
-      sep.className = 'daterange-sep';
-      sep.textContent = '~';
-      const endInput = document.createElement('input');
-      endInput.type = 'date';
-      endInput.id = 'field_' + f.key + '_end';
+function createDaterangeCell(field, value) {
+  const wrap = document.createElement('div');
+  wrap.className = 'daterange-inputs';
+  const isNA = value === 'NA';
+  const [start, end] = isNA ? ['', ''] : (value || '').split('~');
 
-      const naLabel = document.createElement('label');
-      naLabel.className = 'daterange-na-label';
-      const naCheckbox = document.createElement('input');
-      naCheckbox.type = 'checkbox';
-      naCheckbox.id = 'field_' + f.key + '_na';
-      naCheckbox.addEventListener('change', () => {
-        startInput.disabled = naCheckbox.checked;
-        endInput.disabled = naCheckbox.checked;
-      });
-      naLabel.appendChild(naCheckbox);
-      naLabel.appendChild(document.createTextNode(' 비대상'));
+  const startInput = document.createElement('input');
+  startInput.type = 'date';
+  startInput.value = start || '';
+  startInput.disabled = isNA;
+  startInput.dataset.key = field.key;
+  startInput.dataset.part = 'start';
 
-      rangeWrap.appendChild(startInput);
-      rangeWrap.appendChild(sep);
-      rangeWrap.appendChild(endInput);
-      rangeWrap.appendChild(naLabel);
-      wrap.appendChild(rangeWrap);
-      grid.appendChild(wrap);
-      return;
-    }
+  const sep = document.createElement('span');
+  sep.className = 'daterange-sep';
+  sep.textContent = '~';
 
-    label.htmlFor = 'field_' + f.key;
-    let input;
-    if (f.type === 'textarea') {
-      input = document.createElement('textarea');
-      input.rows = 3;
-    } else if (f.type === 'date') {
-      input = document.createElement('input');
-      input.type = 'date';
-    } else if (f.type === 'select') {
-      input = document.createElement('select');
-      const emptyOpt = document.createElement('option');
-      emptyOpt.value = '';
-      emptyOpt.textContent = '선택';
-      input.appendChild(emptyOpt);
-      f.options.forEach((opt) => {
-        const o = document.createElement('option');
-        o.value = opt;
-        o.textContent = opt;
-        input.appendChild(o);
-      });
-    } else {
-      input = document.createElement('input');
-      input.type = 'text';
-    }
-    input.id = 'field_' + f.key;
-    input.name = f.key;
-    wrap.appendChild(input);
-    grid.appendChild(wrap);
+  const endInput = document.createElement('input');
+  endInput.type = 'date';
+  endInput.value = end || '';
+  endInput.disabled = isNA;
+  endInput.dataset.key = field.key;
+  endInput.dataset.part = 'end';
+
+  const naLabel = document.createElement('label');
+  naLabel.className = 'daterange-na-label';
+  const naCheckbox = document.createElement('input');
+  naCheckbox.type = 'checkbox';
+  naCheckbox.checked = isNA;
+  naCheckbox.dataset.key = field.key;
+  naCheckbox.dataset.part = 'na';
+  naCheckbox.addEventListener('change', () => {
+    startInput.disabled = naCheckbox.checked;
+    endInput.disabled = naCheckbox.checked;
   });
+  naLabel.appendChild(naCheckbox);
+  naLabel.appendChild(document.createTextNode(' 비대상'));
+
+  wrap.appendChild(startInput);
+  wrap.appendChild(sep);
+  wrap.appendChild(endInput);
+  wrap.appendChild(naLabel);
+  return wrap;
+}
+
+function readRowValues(tr) {
+  const payload = {};
+  FIELDS.forEach((f) => {
+    if (f.type === 'daterange') {
+      const naCb = tr.querySelector(`[data-key="${f.key}"][data-part="na"]`);
+      if (naCb.checked) {
+        payload[f.key] = 'NA';
+      } else {
+        const start = tr.querySelector(`[data-key="${f.key}"][data-part="start"]`).value;
+        const end = tr.querySelector(`[data-key="${f.key}"][data-part="end"]`).value;
+        payload[f.key] = start || end ? `${start}~${end}` : '';
+      }
+    } else {
+      payload[f.key] = tr.querySelector(`[data-key="${f.key}"]`).value;
+    }
+  });
+  return payload;
 }
 
 function createConditionValueInput(field) {
@@ -330,7 +351,11 @@ function buildRow(r) {
   editBtn.textContent = '수정';
   editBtn.type = 'button';
   editBtn.className = 'btn-small';
-  editBtn.addEventListener('click', () => openEdit(r));
+  editBtn.addEventListener('click', () => {
+    addingNew = false;
+    editingRowId = r.id;
+    render();
+  });
   const delBtn = document.createElement('button');
   delBtn.textContent = '삭제';
   delBtn.type = 'button';
@@ -354,52 +379,98 @@ function buildRow(r) {
   return tr;
 }
 
+function buildEditableRow(record, isNew) {
+  const tr = document.createElement('tr');
+  tr.className = 'editing-row';
+
+  const tdAction = document.createElement('td');
+  tdAction.className = 'col-action';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn-small btn-save';
+  saveBtn.textContent = '저장';
+  saveBtn.addEventListener('click', () => saveRow(tr, record, isNew));
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-small';
+  cancelBtn.textContent = '취소';
+  cancelBtn.addEventListener('click', () => {
+    if (isNew) addingNew = false;
+    else editingRowId = null;
+    render();
+  });
+  tdAction.appendChild(saveBtn);
+  tdAction.appendChild(cancelBtn);
+  tr.appendChild(tdAction);
+
+  FIELDS.forEach((f) => {
+    const td = document.createElement('td');
+    td.className = 'col-editing';
+    if (f.type === 'daterange') {
+      td.appendChild(createDaterangeCell(f, record[f.key]));
+    } else {
+      td.appendChild(createFieldInput(f, record[f.key]));
+    }
+    tr.appendChild(td);
+  });
+
+  return tr;
+}
+
+async function saveRow(tr, record, isNew) {
+  const payload = readRowValues(tr);
+  if (isNew) {
+    const created = await fetch('/api/records', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then((r) => r.json());
+    records.push(created);
+    addingNew = false;
+  } else {
+    const updated = await fetch(`/api/records/${record.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then((r) => r.json());
+    const idx = records.findIndex((rec) => rec.id === record.id);
+    records[idx] = updated;
+    editingRowId = null;
+  }
+  render();
+}
+
 function render() {
   const filtered = getSorted(getFiltered());
   const tbody = el('#tableBody');
   tbody.innerHTML = '';
-  filtered.forEach((r) => tbody.appendChild(buildRow(r)));
+
+  if (addingNew) {
+    const newRow = buildEditableRow({}, true);
+    tbody.appendChild(newRow);
+  }
+
+  filtered.forEach((r) => {
+    if (!addingNew && r.id === editingRowId) {
+      tbody.appendChild(buildEditableRow(r, false));
+    } else {
+      tbody.appendChild(buildRow(r));
+    }
+  });
 
   el('#recordCount').textContent = `전체 ${records.length}건 중 ${filtered.length}건 표시`;
   updateSortIndicators();
+
+  if (addingNew) {
+    const firstInput = tbody.querySelector('tr.editing-row input, tr.editing-row select');
+    if (firstInput) firstInput.focus();
+  }
 }
 
-function openAdd() {
-  editingId = null;
-  el('#modalTitle').textContent = '신규 등록';
-  el('#recordForm').reset();
-  FIELDS.forEach((f) => {
-    if (f.type === 'daterange') {
-      el('#field_' + f.key + '_na').checked = false;
-      el('#field_' + f.key + '_start').disabled = false;
-      el('#field_' + f.key + '_end').disabled = false;
-    }
-  });
-  el('#modalOverlay').classList.remove('hidden');
-}
-
-function openEdit(record) {
-  editingId = record.id;
-  el('#modalTitle').textContent = '수정';
-  FIELDS.forEach((f) => {
-    if (f.type === 'daterange') {
-      const raw = record[f.key] || '';
-      const isNA = raw === 'NA';
-      const [start, end] = isNA ? ['', ''] : raw.split('~');
-      el('#field_' + f.key + '_na').checked = isNA;
-      el('#field_' + f.key + '_start').disabled = isNA;
-      el('#field_' + f.key + '_end').disabled = isNA;
-      el('#field_' + f.key + '_start').value = start || '';
-      el('#field_' + f.key + '_end').value = end || '';
-    } else {
-      el('#field_' + f.key).value = record[f.key] || '';
-    }
-  });
-  el('#modalOverlay').classList.remove('hidden');
-}
-
-function closeModal() {
-  el('#modalOverlay').classList.add('hidden');
+function startAdd() {
+  editingRowId = null;
+  addingNew = true;
+  render();
 }
 
 function showConfirm(message) {
@@ -429,44 +500,6 @@ function showConfirm(message) {
   });
 }
 
-async function onSubmit(e) {
-  e.preventDefault();
-  const payload = {};
-  FIELDS.forEach((f) => {
-    if (f.type === 'daterange') {
-      if (el('#field_' + f.key + '_na').checked) {
-        payload[f.key] = 'NA';
-      } else {
-        const start = el('#field_' + f.key + '_start').value;
-        const end = el('#field_' + f.key + '_end').value;
-        payload[f.key] = start || end ? `${start}~${end}` : '';
-      }
-    } else {
-      payload[f.key] = el('#field_' + f.key).value;
-    }
-  });
-
-  if (editingId) {
-    const updated = await fetch(`/api/records/${editingId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).then((r) => r.json());
-    const idx = records.findIndex((r) => r.id === editingId);
-    records[idx] = updated;
-  } else {
-    const created = await fetch('/api/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).then((r) => r.json());
-    records.push(created);
-  }
-
-  closeModal();
-  render();
-}
-
 async function onDelete(record) {
   const label = record.solutionName || record.releaseName || '이 항목';
   const confirmed = await showConfirm(`'${label}' 항목을 삭제하시겠습니까?`);
@@ -484,10 +517,7 @@ function resetFilters() {
 }
 
 function bindEvents() {
-  el('#addBtn').addEventListener('click', openAdd);
-  el('#modalCloseBtn').addEventListener('click', closeModal);
-  el('#cancelBtn').addEventListener('click', closeModal);
-  el('#recordForm').addEventListener('submit', onSubmit);
+  el('#addBtn').addEventListener('click', startAdd);
   el('#exportBtn').addEventListener('click', () => {
     window.location.href = '/api/export';
   });
@@ -495,11 +525,12 @@ function bindEvents() {
   el('#addConditionBtn').addEventListener('click', () => addConditionRow());
   el('#searchBtn').addEventListener('click', applyConditions);
   el('#clearConditionsBtn').addEventListener('click', clearConditions);
-  el('#modalOverlay').addEventListener('click', (e) => {
-    if (e.target.id === 'modalOverlay') closeModal();
-  });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape' && (addingNew || editingRowId !== null)) {
+      addingNew = false;
+      editingRowId = null;
+      render();
+    }
   });
 }
 
