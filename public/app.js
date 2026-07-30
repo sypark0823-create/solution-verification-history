@@ -5,17 +5,18 @@ let sortState = { key: null, dir: null };
 let editingRowIds = new Set();
 let newRows = [];
 let newRowSeq = 0;
+let selectedIds = new Set();
 
 const el = (sel) => document.querySelector(sel);
 
 const ICONS = {
-  edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>',
-  delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
-  save: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>',
-  cancel: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>',
+  edit: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"></path></svg>',
+  delete: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>',
+  save: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m9 12 2 2 4-4"></path></svg>',
+  cancel: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6"></path><path d="m9 9 6 6"></path></svg>',
 };
 
-const NO_BADGE_KEYS = new Set(['year', 'month', 'verificationCriteria', 'solutionType', 'verificationOrg']);
+const NO_BADGE_KEYS = new Set(['year', 'month', 'verificationCriteria', 'solutionType', 'verificationOrg', 'qrbKickoff']);
 
 const STATUS_DOT_CLASS = {
   계획: 'status-plan',
@@ -23,6 +24,18 @@ const STATUS_DOT_CLASS = {
   완료: 'status-done',
   취소: 'status-cancel',
 };
+
+const AUTO_TARGET_KEY = 'targetCompletionDate';
+const PERIOD_KEYS = [
+  'functionalPeriod',
+  'performancePeriod',
+  'securityPeriod',
+  'licensePeriod',
+  'cxPeriod',
+  'codeQualityPeriod',
+];
+const NARROW_KEYS = new Set(['year', 'month']);
+const DEFAULT_SORT_KEYS = ['year', 'month', 'releaseDate'];
 
 function iconButton(iconKey, label, extraClass) {
   const btn = document.createElement('button');
@@ -39,7 +52,154 @@ async function init() {
   buildHeader();
   await loadRecords();
   bindEvents();
-  await checkAutoStatusSuggestions();
+}
+
+function fieldByKey(key) {
+  return FIELDS.find((f) => f.key === key);
+}
+
+function formatDateValue(field, value) {
+  if (field.type === 'daterange') return formatDateRange(value);
+  if (value === 'NA') return '비대상';
+  return value || '';
+}
+
+function getUniqueValuesForField(field) {
+  const set = new Set();
+  records.forEach((r) => set.add(formatDateValue(field, r[field.key])));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'ko'));
+}
+
+function closeAllFilterPanels() {
+  document.querySelectorAll('.excel-filter-panel').forEach((p) => p.classList.add('hidden'));
+}
+
+function updateFilterButtonStates() {
+  document.querySelectorAll('.excel-filter-btn').forEach((btn) => {
+    const key = btn.dataset.key;
+    btn.classList.toggle('active', !!filters[key]);
+  });
+}
+
+function buildFilterDropdown(field) {
+  const wrap = document.createElement('div');
+  wrap.className = 'excel-filter';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'excel-filter-btn';
+  btn.dataset.key = field.key;
+  btn.innerHTML = '필터 <span class="filter-caret">▾</span>';
+  wrap.appendChild(btn);
+
+  const panel = document.createElement('div');
+  panel.className = 'excel-filter-panel hidden';
+  panel.addEventListener('click', (e) => e.stopPropagation());
+  wrap.appendChild(panel);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wasHidden = panel.classList.contains('hidden');
+    closeAllFilterPanels();
+    if (wasHidden) {
+      renderFilterPanel(field, panel);
+      panel.classList.remove('hidden');
+    }
+  });
+
+  return wrap;
+}
+
+function renderFilterPanel(field, panel) {
+  panel.innerHTML = '';
+  const values = getUniqueValuesForField(field);
+  const selected = filters[field.key];
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = '검색';
+  searchInput.className = 'excel-filter-search';
+  panel.appendChild(searchInput);
+
+  const listWrap = document.createElement('div');
+  listWrap.className = 'excel-filter-list';
+  panel.appendChild(listWrap);
+
+  const selectAllRow = document.createElement('label');
+  selectAllRow.className = 'excel-filter-item excel-filter-all';
+  const selectAllCb = document.createElement('input');
+  selectAllCb.type = 'checkbox';
+  selectAllCb.checked = !selected;
+  selectAllRow.appendChild(selectAllCb);
+  selectAllRow.appendChild(document.createTextNode(' (전체 선택)'));
+  listWrap.appendChild(selectAllRow);
+
+  const valueCbs = [];
+  values.forEach((v) => {
+    const row = document.createElement('label');
+    row.className = 'excel-filter-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !selected || selected.has(v);
+    cb.dataset.value = v;
+    row.appendChild(cb);
+    row.appendChild(document.createTextNode(' ' + (v === '' ? '(비어 있음)' : v)));
+    listWrap.appendChild(row);
+    valueCbs.push(cb);
+  });
+
+  selectAllCb.addEventListener('change', () => {
+    valueCbs.forEach((cb) => {
+      cb.checked = selectAllCb.checked;
+    });
+  });
+  valueCbs.forEach((cb) => {
+    cb.addEventListener('change', () => {
+      selectAllCb.checked = valueCbs.every((c) => c.checked);
+    });
+  });
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+    listWrap.querySelectorAll('.excel-filter-item').forEach((row, i) => {
+      if (i === 0) return;
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'excel-filter-actions';
+
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'btn btn-small';
+  clearBtn.textContent = '초기화';
+  clearBtn.addEventListener('click', () => {
+    delete filters[field.key];
+    panel.classList.add('hidden');
+    updateFilterButtonStates();
+    render();
+  });
+
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.className = 'btn btn-small';
+  applyBtn.textContent = '적용';
+  applyBtn.addEventListener('click', () => {
+    const checkedValues = valueCbs.filter((cb) => cb.checked).map((cb) => cb.dataset.value);
+    if (checkedValues.length === values.length) {
+      delete filters[field.key];
+    } else {
+      filters[field.key] = new Set(checkedValues);
+    }
+    panel.classList.add('hidden');
+    updateFilterButtonStates();
+    render();
+  });
+
+  actions.appendChild(clearBtn);
+  actions.appendChild(applyBtn);
+  panel.appendChild(actions);
 }
 
 function buildHeader() {
@@ -47,6 +207,27 @@ function buildHeader() {
   const filterRow = el('#filterRow');
   headerRow.innerHTML = '';
   filterRow.innerHTML = '';
+
+  const thSelect = document.createElement('th');
+  thSelect.className = 'col-select';
+  const selectAllHeaderCb = document.createElement('input');
+  selectAllHeaderCb.type = 'checkbox';
+  selectAllHeaderCb.id = 'selectAllCheckbox';
+  selectAllHeaderCb.addEventListener('change', (e) => {
+    const filtered = getSorted(getFiltered());
+    if (e.target.checked) filtered.forEach((r) => selectedIds.add(r.id));
+    else filtered.forEach((r) => selectedIds.delete(r.id));
+    render();
+  });
+  thSelect.appendChild(selectAllHeaderCb);
+  headerRow.appendChild(thSelect);
+  filterRow.appendChild(document.createElement('th'));
+
+  const thSerial = document.createElement('th');
+  thSerial.className = 'col-serial';
+  thSerial.textContent = 'No.';
+  headerRow.appendChild(thSerial);
+  filterRow.appendChild(document.createElement('th'));
 
   const thAction = document.createElement('th');
   thAction.textContent = '관리';
@@ -63,124 +244,16 @@ function buildHeader() {
     headerRow.appendChild(th);
 
     const filterTh = document.createElement('th');
-    let input;
-    if (f.type === 'select') {
-      input = document.createElement('select');
-      input.className = 'filter-input';
-      const allOpt = document.createElement('option');
-      allOpt.value = '';
-      allOpt.textContent = '전체';
-      input.appendChild(allOpt);
-      f.options.forEach((opt) => {
-        const o = document.createElement('option');
-        o.value = opt;
-        o.textContent = opt;
-        input.appendChild(o);
-      });
-      input.addEventListener('change', (e) => {
-        filters[f.key] = e.target.value.trim();
-        render();
-      });
-    } else {
-      input = document.createElement('input');
-      input.type = f.type === 'date' ? 'date' : 'text';
-      input.placeholder = f.type === 'date' ? '' : '필터';
-      input.className = 'filter-input';
-      input.addEventListener('input', (e) => {
-        filters[f.key] = e.target.value.trim();
-        render();
-      });
-    }
-    input.dataset.key = f.key;
-    filterTh.appendChild(input);
+    filterTh.appendChild(buildFilterDropdown(f));
     filterRow.appendChild(filterTh);
   });
 }
-
-const AUTO_TARGET_KEY = 'targetCompletionDate';
-const PERIOD_KEYS = [
-  'functionalPeriod',
-  'performancePeriod',
-  'securityPeriod',
-  'licensePeriod',
-  'cxPeriod',
-  'codeQualityPeriod',
-];
 
 function todayISO() {
   const d = new Date();
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${mm}-${dd}`;
-}
-
-function hasStartedVerification(r) {
-  const today = todayISO();
-  return PERIOD_KEYS.some((key) => {
-    const val = r[key];
-    if (!val || val === 'NA') return false;
-    const start = val.split('~')[0];
-    return start && start <= today;
-  });
-}
-
-function summarizeNames(items, max) {
-  const names = items.map((r) => r.solutionName || '(이름없음)');
-  if (names.length <= max) return names.join(', ');
-  return names.slice(0, max).join(', ') + ` 외 ${names.length - max}건`;
-}
-
-async function applyStatusChange(items, status) {
-  await Promise.all(
-    items.map((r) =>
-      fetch(`/api/records/${r.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      })
-        .then((res) => res.json())
-        .then((updated) => {
-          const idx = records.findIndex((rec) => rec.id === r.id);
-          if (idx !== -1) records[idx] = updated;
-        })
-    )
-  );
-}
-
-function suggestStatusForRecord(r) {
-  if ((r.result === 'PASS' || r.result === 'FAIL') && (r.status === '계획' || r.status === '진행')) {
-    return '완료';
-  }
-  if (!hasStartedVerification(r) && (r.status === '진행' || r.status === '완료')) {
-    return '계획';
-  }
-  return null;
-}
-
-async function checkAutoStatusSuggestions() {
-  const toComplete = records.filter((r) => suggestStatusForRecord(r) === '완료');
-  if (toComplete.length > 0) {
-    const confirmed = await showConfirm(
-      `수행결과가 등록되었지만 진행상태가 완료가 아닌 항목이 ${toComplete.length}건 있습니다 (${summarizeNames(toComplete, 5)}). 진행상태를 '완료'로 변경하시겠습니까?`,
-      { title: '진행상태 확인', okLabel: '완료로 변경', danger: false }
-    );
-    if (confirmed) {
-      await applyStatusChange(toComplete, '완료');
-      render();
-    }
-  }
-
-  const toPlan = records.filter((r) => suggestStatusForRecord(r) === '계획');
-  if (toPlan.length > 0) {
-    const confirmed = await showConfirm(
-      `검증기간이 아직 시작되지 않았는데 진행상태가 진행/완료로 되어 있는 항목이 ${toPlan.length}건 있습니다 (${summarizeNames(toPlan, 5)}). 진행상태를 '계획'으로 변경하시겠습니까?`,
-      { title: '진행상태 확인', okLabel: '계획으로 변경', danger: false }
-    );
-    if (confirmed) {
-      await applyStatusChange(toPlan, '계획');
-      render();
-    }
-  }
 }
 
 function createFieldInput(field, value) {
@@ -216,6 +289,7 @@ function createFieldInput(field, value) {
   }
   input.className = 'inline-input';
   input.dataset.key = field.key;
+  if (NARROW_KEYS.has(field.key)) input.classList.add('inline-input-narrow');
   return input;
 }
 
@@ -275,19 +349,99 @@ function createDaterangeCell(field, value) {
   return wrap;
 }
 
+function createSingleDateNACell(field, value) {
+  const wrap = document.createElement('div');
+  wrap.className = 'daterange-inputs';
+  const isNA = value === 'NA';
+
+  const dateInput = document.createElement('input');
+  dateInput.type = 'date';
+  dateInput.value = isNA ? '' : value || '';
+  dateInput.disabled = isNA;
+  dateInput.dataset.key = field.key;
+  dateInput.dataset.part = 'single';
+
+  const naLabel = document.createElement('label');
+  naLabel.className = 'daterange-na-label';
+  const naCheckbox = document.createElement('input');
+  naCheckbox.type = 'checkbox';
+  naCheckbox.checked = isNA;
+  naCheckbox.dataset.key = field.key;
+  naCheckbox.dataset.part = 'na';
+  naCheckbox.addEventListener('change', () => {
+    dateInput.disabled = naCheckbox.checked;
+  });
+  naLabel.appendChild(naCheckbox);
+  naLabel.appendChild(document.createTextNode(' 비대상'));
+
+  wrap.appendChild(dateInput);
+  wrap.appendChild(naLabel);
+  return wrap;
+}
+
+const D2_CRITERIA = new Set(['개발스프린트점검', '출시QRB', '서비스오픈점검', '시스템오픈점검']);
+
+function subtractBusinessDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  let remaining = n;
+  while (remaining > 0) {
+    d.setDate(d.getDate() - 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function recalcTargetCompletionDate(tr) {
   const targetInput = tr.querySelector(`[data-key="${AUTO_TARGET_KEY}"]`);
   if (!targetInput) return;
+
+  const vcInput = tr.querySelector('[data-key="verificationCriteria"]');
+  if (vcInput && D2_CRITERIA.has(vcInput.value)) {
+    const releaseDateInput = tr.querySelector('[data-key="releaseDate"]');
+    const releaseDate = releaseDateInput ? releaseDateInput.value : '';
+    targetInput.value = releaseDate ? subtractBusinessDays(releaseDate, 2) : '';
+    return;
+  }
+
   let latest = '';
   PERIOD_KEYS.forEach((key) => {
+    const field = fieldByKey(key);
     const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
     if (naCb && naCb.checked) return;
-    const endInput = tr.querySelector(`[data-key="${key}"][data-part="end"]`);
-    if (endInput && endInput.value && endInput.value > latest) {
-      latest = endInput.value;
+    const part = field && field.type === 'daterange' ? 'end' : 'single';
+    const dateInput = tr.querySelector(`[data-key="${key}"][data-part="${part}"]`);
+    if (dateInput && dateInput.value && dateInput.value > latest) {
+      latest = dateInput.value;
     }
   });
   targetInput.value = latest;
+}
+
+async function promptBulkNA(tr, criteria) {
+  if (!D2_CRITERIA.has(criteria)) return;
+  const allNA = PERIOD_KEYS.every((key) => {
+    const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
+    return naCb && naCb.checked;
+  });
+  if (allNA) return;
+
+  const confirmed = await showConfirm(
+    `검증기준을 '${criteria}'(으)로 선택하셨습니다. 기능검증, 성능검증, 보안검증, OSL검증, CX검증, 코드품질을 일괄 비대상으로 처리하시겠습니까?`,
+    { title: '비대상 일괄 처리', okLabel: '일괄 비대상', danger: false }
+  );
+  if (!confirmed) return;
+
+  PERIOD_KEYS.forEach((key) => {
+    const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
+    if (naCb && !naCb.checked) {
+      naCb.checked = true;
+      naCb.dispatchEvent(new Event('change'));
+    }
+  });
 }
 
 function readRowValues(tr) {
@@ -304,6 +458,13 @@ function readRowValues(tr) {
           [start, end] = [end, start];
         }
         payload[f.key] = start || end ? `${start}~${end}` : '';
+      }
+    } else if (f.type === 'date' && f.allowNA) {
+      const naCb = tr.querySelector(`[data-key="${f.key}"][data-part="na"]`);
+      if (naCb.checked) {
+        payload[f.key] = 'NA';
+      } else {
+        payload[f.key] = tr.querySelector(`[data-key="${f.key}"][data-part="single"]`).value;
       }
     } else {
       payload[f.key] = tr.querySelector(`[data-key="${f.key}"]`).value;
@@ -328,27 +489,51 @@ async function loadRecords() {
 }
 
 function getFiltered() {
-  return records.filter((r) =>
-    FIELDS.every((f) => {
-      const fv = (filters[f.key] || '').toLowerCase();
-      if (!fv) return true;
-      const raw = f.type === 'daterange' ? formatDateRange(r[f.key]) : r[f.key];
-      const val = (raw || '').toString().toLowerCase();
-      return val.includes(fv);
-    })
-  );
+  return records.filter((r) => {
+    // Rows currently being edited must stay visible (and thus saveable) even if
+    // they no longer match the active filters — otherwise a filter change mid-edit
+    // would silently drop their unsaved changes from a bulk save.
+    if (editingRowIds.has(r.id)) return true;
+    return FIELDS.every((f) => {
+      const sel = filters[f.key];
+      if (!sel) return true;
+      const raw = formatDateValue(f, r[f.key]);
+      return sel.has(raw);
+    });
+  });
+}
+
+function defaultSortCompare(a, b) {
+  for (const key of DEFAULT_SORT_KEYS) {
+    let av = a[key] || '';
+    let bv = b[key] || '';
+    if (key === 'year' || key === 'month') {
+      av = av !== '' ? parseInt(av, 10) : -Infinity;
+      bv = bv !== '' ? parseInt(bv, 10) : -Infinity;
+    } else {
+      av = av ? new Date(av).getTime() : -Infinity;
+      bv = bv ? new Date(bv).getTime() : -Infinity;
+    }
+    if (av < bv) return -1;
+    if (av > bv) return 1;
+  }
+  return 0;
 }
 
 function getSorted(list) {
-  if (!sortState.key) return list;
+  if (!sortState.key) {
+    return [...list].sort(defaultSortCompare);
+  }
   const { key, dir } = sortState;
-  const field = FIELDS.find((f) => f.key === key);
+  const field = fieldByKey(key);
   return [...list].sort((a, b) => {
     let av = a[key] || '';
     let bv = b[key] || '';
     if (field && field.type === 'date') {
-      av = av ? new Date(av).getTime() : -Infinity;
-      bv = bv ? new Date(bv).getTime() : -Infinity;
+      const avd = av === 'NA' ? '' : av;
+      const bvd = bv === 'NA' ? '' : bv;
+      av = avd ? new Date(avd).getTime() : -Infinity;
+      bv = bvd ? new Date(bvd).getTime() : -Infinity;
     } else if (field && field.type === 'daterange') {
       const aStart = av === 'NA' ? '' : (av || '').split('~')[0];
       const bStart = bv === 'NA' ? '' : (bv || '').split('~')[0];
@@ -394,12 +579,40 @@ function updateSortIndicators() {
   });
 }
 
-function buildRow(r) {
-  const tr = document.createElement('tr');
+function updateSummary(filtered) {
+  const counts = { 완료: 0, 진행: 0, 계획: 0 };
+  filtered.forEach((r) => {
+    if (counts[r.status] !== undefined) counts[r.status]++;
+  });
+  el('#summaryTotal').textContent = filtered.length;
+  el('#summaryDone').textContent = counts['완료'];
+  el('#summaryProgress').textContent = counts['진행'];
+  el('#summaryPlan').textContent = counts['계획'];
+}
 
-  const autoInProgress = hasStartedVerification(r) && r.status !== '완료' && r.status !== '취소';
-  if (autoInProgress) tr.classList.add('row-auto-progress');
+function buildRow(r, serial) {
+  const tr = document.createElement('tr');
   if (r.status === '완료') tr.classList.add('row-done');
+  if (r.status === '진행') tr.classList.add('row-progress');
+
+  const tdSelect = document.createElement('td');
+  tdSelect.className = 'col-select';
+  const selectCb = document.createElement('input');
+  selectCb.type = 'checkbox';
+  selectCb.checked = selectedIds.has(r.id);
+  selectCb.addEventListener('change', (e) => {
+    if (e.target.checked) selectedIds.add(r.id);
+    else selectedIds.delete(r.id);
+    const headerCb = document.getElementById('selectAllCheckbox');
+    if (headerCb) headerCb.checked = false;
+  });
+  tdSelect.appendChild(selectCb);
+  tr.appendChild(tdSelect);
+
+  const tdSerial = document.createElement('td');
+  tdSerial.className = 'col-serial';
+  tdSerial.textContent = serial;
+  tr.appendChild(tdSerial);
 
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
@@ -416,10 +629,9 @@ function buildRow(r) {
 
   FIELDS.forEach((f) => {
     const td = document.createElement('td');
-    let value = r[f.key] || '';
-    if (f.key === 'status' && autoInProgress) value = '진행';
-    if (f.type === 'daterange') {
-      td.textContent = formatDateRange(value);
+    const value = r[f.key] || '';
+    if (f.type === 'daterange' || (f.type === 'date' && f.allowNA)) {
+      td.textContent = formatDateValue(f, value);
     } else if (f.key === 'status' && value) {
       const dot = document.createElement('span');
       dot.className = 'status-dot ' + (STATUS_DOT_CLASS[value] || '');
@@ -441,11 +653,20 @@ function buildRow(r) {
   return tr;
 }
 
-function buildEditableRow(record, isNew, tempId) {
+function buildEditableRow(record, isNew, tempId, serial) {
   const tr = document.createElement('tr');
   tr.className = 'editing-row';
   if (isNew) tr.dataset.tempId = tempId;
   else tr.dataset.recordId = record.id;
+
+  const tdSelect = document.createElement('td');
+  tdSelect.className = 'col-select';
+  tr.appendChild(tdSelect);
+
+  const tdSerial = document.createElement('td');
+  tdSerial.className = 'col-serial';
+  tdSerial.textContent = isNew ? '' : serial || '';
+  tr.appendChild(tdSerial);
 
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
@@ -466,6 +687,8 @@ function buildEditableRow(record, isNew, tempId) {
     td.className = 'col-editing';
     if (f.type === 'daterange') {
       td.appendChild(createDaterangeCell(f, record[f.key]));
+    } else if (f.type === 'date' && f.allowNA) {
+      td.appendChild(createSingleDateNACell(f, record[f.key]));
     } else {
       td.appendChild(createFieldInput(f, record[f.key]));
     }
@@ -474,41 +697,48 @@ function buildEditableRow(record, isNew, tempId) {
 
   const recalc = () => recalcTargetCompletionDate(tr);
   PERIOD_KEYS.forEach((key) => {
-    const endInput = tr.querySelector(`[data-key="${key}"][data-part="end"]`);
+    const field = fieldByKey(key);
+    const part = field && field.type === 'daterange' ? 'end' : 'single';
+    const dateInput = tr.querySelector(`[data-key="${key}"][data-part="${part}"]`);
     const naCb = tr.querySelector(`[data-key="${key}"][data-part="na"]`);
-    if (endInput) {
-      endInput.addEventListener('input', recalc);
-      endInput.addEventListener('change', recalc);
+    if (dateInput) {
+      dateInput.addEventListener('input', recalc);
+      dateInput.addEventListener('change', recalc);
     }
     if (naCb) naCb.addEventListener('change', recalc);
   });
+  const vcInput = tr.querySelector('[data-key="verificationCriteria"]');
+  if (vcInput) {
+    vcInput.addEventListener('change', recalc);
+    vcInput.addEventListener('change', () => promptBulkNA(tr, vcInput.value));
+  }
+  const releaseDateInput = tr.querySelector('[data-key="releaseDate"]');
+  if (releaseDateInput) {
+    releaseDateInput.addEventListener('input', recalc);
+    releaseDateInput.addEventListener('change', recalc);
+  }
   recalc();
 
   return tr;
 }
 
+function isPayloadEmpty(payload) {
+  return Object.values(payload).every((v) => !v);
+}
+
 async function saveRow(tr, record, isNew, tempId) {
   const payload = readRowValues(tr);
-  const suggestedStatus = suggestStatusForRecord(payload);
-  if (suggestedStatus) payload.status = suggestedStatus;
+
+  if (isNew && isPayloadEmpty(payload)) {
+    newRows = newRows.filter((nr) => nr.tempId !== tempId);
+    render();
+    return;
+  }
 
   const label = payload.solutionName || record.solutionName || '이 항목';
-
-  const wasResultSet = record.result === 'PASS' || record.result === 'FAIL';
-  const resultCleared = wasResultSet && !payload.result;
-  if (!isNew && resultCleared && payload.status === '완료') {
-    await showAlert(
-      `'${label}' 항목의 수행결과가 삭제되었습니다. 진행상태가 '완료'로 되어 있으니 상태값을 다시 확인해 주세요.`,
-      { title: '진행상태 확인 필요' }
-    );
-  }
-
-  let message = isNew
+  const message = isNew
     ? `'${label}' 항목을 등록하시겠습니까?`
     : `'${label}' 항목의 변경사항을 저장하시겠습니까?`;
-  if (suggestedStatus) {
-    message += ` (진행상태가 '${suggestedStatus}'(으)로 자동 반영됩니다)`;
-  }
   const confirmed = await showConfirm(message, {
     title: isNew ? '등록 확인' : '수정 확인',
     okLabel: isNew ? '등록' : '저장',
@@ -541,46 +771,22 @@ async function saveAllPending() {
   const pendingCount = newRows.length + editingRowIds.size;
   if (pendingCount === 0) return;
 
-  const editingRowEls = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
-  const rowPayloads = editingRowEls.map((tr) => {
-    const payload = readRowValues(tr);
-    const suggestedStatus = suggestStatusForRecord(payload);
-    if (suggestedStatus) payload.status = suggestedStatus;
-    return { tr, payload, suggestedStatus };
-  });
-  const autoAdjustedCount = rowPayloads.filter((rp) => rp.suggestedStatus).length;
-
-  const staleCompleteNames = rowPayloads
-    .filter(({ tr, payload }) => {
-      const id = tr.dataset.recordId;
-      if (!id) return false;
-      const original = records.find((rec) => rec.id === id);
-      const wasResultSet = original && (original.result === 'PASS' || original.result === 'FAIL');
-      return wasResultSet && !payload.result && payload.status === '완료';
-    })
-    .map(({ payload }) => payload.solutionName || '(이름없음)');
-  if (staleCompleteNames.length > 0) {
-    await showAlert(
-      `수행결과가 삭제되었지만 진행상태가 '완료'로 되어 있는 항목이 있습니다 (${staleCompleteNames.join(', ')}). 상태값을 다시 확인해 주세요.`,
-      { title: '진행상태 확인 필요' }
-    );
-  }
-
-  let message = `작성 중인 ${pendingCount}건을 일괄 저장하시겠습니까?`;
-  if (autoAdjustedCount > 0) {
-    message += ` (${autoAdjustedCount}건은 진행상태가 자동 반영됩니다)`;
-  }
-
-  const confirmed = await showConfirm(message, {
+  const confirmed = await showConfirm(`작성 중인 ${pendingCount}건을 일괄 저장하시겠습니까?`, {
     title: '일괄 저장 확인',
     okLabel: '일괄 저장',
     danger: false,
   });
   if (!confirmed) return;
 
-  const tasks = rowPayloads.map(({ tr, payload }) => {
+  const editingRowEls = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
+  const tasks = editingRowEls.map((tr) => {
+    const payload = readRowValues(tr);
     if (tr.dataset.tempId) {
       const tempId = tr.dataset.tempId;
+      if (isPayloadEmpty(payload)) {
+        newRows = newRows.filter((nr) => String(nr.tempId) !== tempId);
+        return Promise.resolve();
+      }
       return fetch('/api/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -610,31 +816,73 @@ async function saveAllPending() {
   render();
 }
 
+async function bulkEdit() {
+  if (selectedIds.size === 0) {
+    const filtered = getSorted(getFiltered());
+    filtered.forEach((r) => editingRowIds.add(r.id));
+    render();
+    return;
+  }
+  selectedIds.forEach((id) => editingRowIds.add(id));
+  selectedIds.clear();
+  render();
+}
+
+async function bulkDelete() {
+  if (selectedIds.size === 0) {
+    await showAlert('선택된 항목이 없습니다.', { title: '안내', danger: false });
+    return;
+  }
+  const count = selectedIds.size;
+  const confirmed = await showConfirm(`선택한 ${count}건을 삭제하시겠습니까?`, {
+    title: '일괄 삭제 확인',
+    okLabel: '삭제',
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  await Promise.all(
+    Array.from(selectedIds).map((id) => fetch(`/api/records/${id}`, { method: 'DELETE' }))
+  );
+  records = records.filter((r) => !selectedIds.has(r.id));
+  selectedIds.clear();
+  render();
+}
+
 function render() {
   const filtered = getSorted(getFiltered());
   const tbody = el('#tableBody');
   tbody.innerHTML = '';
 
+  filtered.forEach((r, idx) => {
+    if (editingRowIds.has(r.id)) {
+      tbody.appendChild(buildEditableRow(r, false, undefined, idx + 1));
+    } else {
+      tbody.appendChild(buildRow(r, idx + 1));
+    }
+  });
+
   newRows.forEach((nr) => {
     tbody.appendChild(buildEditableRow({}, true, nr.tempId));
   });
 
-  filtered.forEach((r) => {
-    if (editingRowIds.has(r.id)) {
-      tbody.appendChild(buildEditableRow(r, false));
-    } else {
-      tbody.appendChild(buildRow(r));
-    }
-  });
-
+  updateSummary(filtered);
   el('#recordCount').textContent = `전체 ${records.length}건 중 ${filtered.length}건 표시`;
   updateSortIndicators();
+
+  const selectAllCb = document.getElementById('selectAllCheckbox');
+  if (selectAllCb) {
+    selectAllCb.checked = filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id));
+  }
 
   if (newRows.length > 0) {
     const lastTempId = String(newRows[newRows.length - 1].tempId);
     const lastRow = tbody.querySelector(`tr.editing-row[data-temp-id="${lastTempId}"]`);
-    const firstInput = lastRow && lastRow.querySelector('input, select');
-    if (firstInput) firstInput.focus();
+    if (lastRow) {
+      lastRow.scrollIntoView({ block: 'nearest' });
+      const firstInput = lastRow.querySelector('input, select');
+      if (firstInput) firstInput.focus();
+    }
   }
 }
 
@@ -691,22 +939,68 @@ async function onDelete(record) {
   if (!confirmed) return;
   await fetch(`/api/records/${record.id}`, { method: 'DELETE' });
   records = records.filter((r) => r.id !== record.id);
+  selectedIds.delete(record.id);
   render();
 }
 
 function resetFilters() {
   filters = {};
-  document.querySelectorAll('.filter-input').forEach((i) => (i.value = ''));
+  closeAllFilterPanels();
+  updateFilterButtonStates();
   render();
+}
+
+async function handleImportFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+
+  const confirmed = await showConfirm(
+    `'${file.name}' 파일을 업로드하시겠습니까? 파일의 각 행이 새 항목으로 등록됩니다.`,
+    { title: '엑셀 업로드 확인', okLabel: '업로드', danger: false }
+  );
+  if (!confirmed) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  let data;
+  try {
+    const res = await fetch('/api/import', { method: 'POST', body: formData });
+    data = await res.json();
+    if (!res.ok || !data.success) {
+      const errors = data.errors || ['업로드 중 오류가 발생했습니다.'];
+      const shown = errors.slice(0, 15);
+      const more = errors.length > 15 ? `\n외 ${errors.length - 15}건` : '';
+      await showAlert(`업로드를 완료하지 못했습니다. 아래 항목을 확인해 주세요.\n\n${shown.join('\n')}${more}`, {
+        title: '업로드 실패',
+      });
+      return;
+    }
+  } catch (err) {
+    await showAlert('업로드 중 오류가 발생했습니다.', { title: '업로드 실패' });
+    return;
+  }
+
+  await showAlert(`${data.importedCount}건이 성공적으로 등록되었습니다.`, {
+    title: '업로드 완료',
+    danger: false,
+  });
+  await loadRecords();
 }
 
 function bindEvents() {
   el('#addBtn').addEventListener('click', startAdd);
+  el('#bulkEditBtn').addEventListener('click', bulkEdit);
+  el('#bulkDeleteBtn').addEventListener('click', bulkDelete);
   el('#bulkSaveBtn').addEventListener('click', saveAllPending);
   el('#exportBtn').addEventListener('click', () => {
     window.location.href = '/api/export';
   });
+  el('#importBtn').addEventListener('click', () => el('#importFileInput').click());
+  el('#importFileInput').addEventListener('change', handleImportFile);
   el('#resetFiltersBtn').addEventListener('click', resetFilters);
+  document.addEventListener('click', () => closeAllFilterPanels());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && (newRows.length > 0 || editingRowIds.size > 0)) {
       newRows = [];

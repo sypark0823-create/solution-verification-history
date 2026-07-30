@@ -13,12 +13,23 @@
     <span id="recordCount" class="count"></span>
     <button id="resetFiltersBtn" class="btn btn-secondary" type="button">필터 초기화</button>
     <button id="exportBtn" class="btn btn-secondary" type="button">엑셀 다운로드</button>
+    <button id="importBtn" class="btn btn-secondary" type="button">엑셀 업로드</button>
+    <input type="file" id="importFileInput" accept=".xlsx" class="hidden-file-input" />
     <button id="addBtn" class="btn btn-secondary" type="button">+ 신규 등록</button>
+    <button id="bulkEditBtn" class="btn btn-secondary" type="button">일괄 수정</button>
+    <button id="bulkDeleteBtn" class="btn btn-secondary" type="button">일괄 삭제</button>
     <button id="bulkSaveBtn" class="btn btn-primary" type="button">일괄 저장</button>
   </div>
 </header>
 
 <main>
+  <div class="summary-bar">
+    총 <strong id="summaryTotal" class="summary-count">0</strong>건,
+    완료 <strong id="summaryDone" class="summary-count">0</strong>건,
+    진행 <strong id="summaryProgress" class="summary-count">0</strong>건,
+    계획 <strong id="summaryPlan" class="summary-count">0</strong>건
+  </div>
+
   <div class="table-wrap">
     <table id="dataTable">
       <thead>

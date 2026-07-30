@@ -5,21 +5,46 @@ const DB_PATH = path.join(__dirname, 'data', 'db.json');
 
 let usePostgres = false;
 let pool;
+let fileDbInitialized = false;
 
 function readFileDB() {
+  const dataDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
   if (!fs.existsSync(DB_PATH)) {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    if (fileDbInitialized) {
+      // The file existed a moment ago and just vanished (sync conflict, antivirus
+      // lock, etc.) — refuse to silently recreate an empty DB and lose history.
+      throw new Error(
+        'data/db.json 파일이 예기치 않게 사라졌습니다. 데이터 유실을 막기 위해 자동 초기화를 중단합니다. 파일 동기화 상태를 확인해 주세요.'
+      );
+    }
     fs.writeFileSync(DB_PATH, JSON.stringify({ records: [] }, null, 2));
   }
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+
+  const raw = fs.readFileSync(DB_PATH, 'utf-8');
+  fileDbInitialized = true;
+  return JSON.parse(raw);
 }
 
 function writeFileDB(db) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+  const tmpPath = `${DB_PATH}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(db, null, 2));
+  fs.renameSync(tmpPath, DB_PATH);
 }
 
 async function init() {
   if (!process.env.DATABASE_URL) {
+    if (process.env.RENDER) {
+      // Render's disk is ephemeral — every redeploy/restart wipes it. Refuse to
+      // silently run in a mode that looks like it's saving data but isn't.
+      throw new Error(
+        'DATABASE_URL이 설정되지 않았습니다. Render는 파일시스템이 임시 저장소라 재배포/재시작 시 데이터가 사라집니다. ' +
+          'Render 대시보드 > Environment에서 DATABASE_URL(Neon 등 Postgres 연결 문자열)을 설정한 뒤 다시 배포해 주세요.'
+      );
+    }
     console.log('DATABASE_URL not set — using local file storage (data/db.json).');
     return;
   }

@@ -23,14 +23,14 @@ body {
   font-family: "Segoe UI", "Malgun Gothic", -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 6px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -39,27 +39,27 @@ body {
 }
 
 .topbar h1 {
-  font-size: 18px;
+  font-size: 14px;
   margin: 0;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
 }
 
 .count {
   color: var(--muted);
-  font-size: 13px;
-  margin-right: 6px;
+  font-size: 10px;
+  margin-right: 4px;
 }
 
 .btn {
   border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 13px;
+  border-radius: 5px;
+  padding: 4px 9px;
+  font-size: 10px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
@@ -82,8 +82,8 @@ body {
 }
 
 .btn-small {
-  padding: 4px 9px;
-  font-size: 12px;
+  padding: 2px 6px;
+  font-size: 9px;
   margin-right: 4px;
   border-radius: 4px;
   border: 1px solid var(--border);
@@ -103,7 +103,22 @@ body {
 }
 
 main {
-  padding: 16px 20px 40px;
+  padding: 8px 14px 20px;
+}
+
+.summary-bar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.summary-count {
+  color: var(--primary);
+  font-weight: 700;
 }
 
 .table-wrap {
@@ -111,7 +126,8 @@ main {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: auto;
-  max-height: calc(100vh - 110px);
+  max-height: calc(100vh - 90px);
+  min-height: 420px;
 }
 
 table {
@@ -131,10 +147,10 @@ thead th {
 }
 
 #filterRow th {
-  top: 37px;
+  top: 25px;
   z-index: 9;
   background: #f7f9fc;
-  padding: 4px 6px;
+  padding: 2px 4px;
 }
 
 #headerRow th {
@@ -145,7 +161,7 @@ thead th {
 
 #headerRow th.sortable {
   cursor: pointer;
-  padding: 9px 10px;
+  padding: 5px 7px;
 }
 
 #headerRow th.sortable:hover {
@@ -157,8 +173,8 @@ thead th {
 }
 
 .sort-indicator {
-  margin-left: 4px;
-  font-size: 10px;
+  margin-left: 3px;
+  font-size: 8px;
 }
 
 .col-action {
@@ -166,27 +182,118 @@ thead th {
   text-align: center;
 }
 
-.filter-input {
-  width: 110px;
-  padding: 5px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 12px;
+.col-select,
+.col-serial {
+  text-align: center;
+  white-space: nowrap;
 }
 
-.filter-input:focus {
-  outline: none;
+.col-serial {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.excel-filter {
+  position: relative;
+}
+
+.excel-filter-btn {
+  width: 100%;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 9px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.excel-filter-btn:hover {
+  background: var(--header-bg);
+}
+.excel-filter-btn.active {
   border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.filter-caret {
+  font-size: 7px;
+}
+
+.excel-filter-panel.hidden {
+  display: none;
+}
+
+.excel-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  width: 190px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  padding: 5px;
+}
+
+.excel-filter-search {
+  width: 100%;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.excel-filter-list {
+  max-height: 190px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 2px 0;
+}
+
+.excel-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.excel-filter-item:hover {
+  background: var(--header-bg);
+}
+
+.excel-filter-all {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+  padding-bottom: 6px;
+}
+
+.excel-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 tbody td {
-  padding: 8px 10px;
+  padding: 3px 7px;
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
   white-space: nowrap;
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
 }
 
 tbody td.col-wide {
@@ -213,17 +320,17 @@ tr.editing-row:hover {
   background: var(--edit-bg);
 }
 
-#tableBody tr.row-auto-progress {
-  background: #fff6d6;
-}
-#tableBody tr.row-auto-progress:hover {
-  background: #ffefaf;
-}
 #tableBody tr.row-done {
   background: #f1f2f4;
 }
 #tableBody tr.row-done:hover {
   background: #e6e7ea;
+}
+#tableBody tr.row-progress {
+  background: #fff6d6;
+}
+#tableBody tr.row-progress:hover {
+  background: #ffefaf;
 }
 tr.editing-row td {
   border-bottom-color: #bfdbfe;
@@ -233,29 +340,34 @@ td.col-editing {
   white-space: nowrap;
   max-width: none;
   overflow: visible;
-  padding: 6px 8px;
+  padding: 3px 5px;
   vertical-align: middle;
 }
 
 .inline-input {
-  width: 130px;
-  padding: 6px 7px;
+  width: 92px;
+  padding: 2px 4px;
   border: 1px solid var(--border);
-  border-radius: 5px;
-  font-size: 13px;
+  border-radius: 4px;
+  font-size: 10px;
   font-family: inherit;
+  text-align: center;
 }
 
 select.inline-input {
-  width: 110px;
+  width: 82px;
+}
+
+.inline-input-narrow {
+  width: 46px !important;
 }
 
 input[type="date"].inline-input {
-  width: 150px;
+  width: 112px;
 }
 
 textarea.inline-input {
-  width: 180px;
+  width: 130px;
   resize: vertical;
 }
 
@@ -273,13 +385,13 @@ textarea.inline-input {
 .icon-action-btn {
   border: none;
   background: transparent;
-  padding: 5px;
-  border-radius: 6px;
+  padding: 2px;
+  border-radius: 5px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-right: 4px;
+  margin-right: 2px;
   vertical-align: middle;
 }
 
@@ -315,11 +427,11 @@ textarea.inline-input {
 
 .badge {
   display: inline-block;
-  padding: 2px 9px;
+  padding: 1px 6px;
   border-radius: 9999px;
   background: var(--header-bg);
   color: var(--text);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -392,29 +504,36 @@ textarea.inline-input {
 
 .modal-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 14px 20px;
+  padding: 8px 14px;
   border-top: 1px solid var(--border);
 }
 
 .confirm-modal {
-  max-width: 380px;
+  max-width: 460px;
 }
 
 .confirm-body {
-  padding: 20px;
+  padding: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 .confirm-body p {
   margin: 0;
-  font-size: 14px;
+  font-size: 11px;
   color: var(--text);
+  white-space: pre-line;
+}
+
+.hidden-file-input {
+  display: none;
 }
 
 .btn-danger-solid {
@@ -433,12 +552,13 @@ textarea.inline-input {
 
 .daterange-inputs input[type="date"] {
   flex: 1;
-  min-width: 130px;
-  padding: 8px 8px;
+  min-width: 108px;
+  padding: 3px 5px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 5px;
+  font-size: 10px;
   font-family: inherit;
+  text-align: center;
 }
 
 .daterange-inputs input[type="date"]:focus {
@@ -454,15 +574,15 @@ textarea.inline-input {
 
 .daterange-sep {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   flex-shrink: 0;
 }
 
 .daterange-na-label {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12.5px;
+  gap: 3px;
+  font-size: 10px;
   color: var(--muted);
   flex-shrink: 0;
   white-space: nowrap;
