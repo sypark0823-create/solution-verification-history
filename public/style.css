@@ -345,7 +345,9 @@ td.col-editing {
 }
 
 .inline-input {
-  width: 92px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 60px;
   padding: 2px 4px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -355,19 +357,20 @@ td.col-editing {
 }
 
 select.inline-input {
-  width: 82px;
+  min-width: 70px;
 }
 
 .inline-input-narrow {
   width: 46px !important;
+  min-width: 46px !important;
 }
 
 input[type="date"].inline-input {
-  width: 112px;
+  min-width: 112px;
 }
 
 textarea.inline-input {
-  width: 130px;
+  min-width: 130px;
   resize: vertical;
 }
 

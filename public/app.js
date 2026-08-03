@@ -6,6 +6,7 @@ let editingRowIds = new Set();
 let newRows = [];
 let newRowSeq = 0;
 let selectedIds = new Set();
+let drafts = {};
 
 const el = (sel) => document.querySelector(sel);
 
@@ -674,8 +675,13 @@ function buildEditableRow(record, isNew, tempId, serial) {
   saveBtn.addEventListener('click', () => saveRow(tr, record, isNew, tempId));
   const cancelBtn = iconButton('cancel', '취소', 'icon-cancel');
   cancelBtn.addEventListener('click', () => {
-    if (isNew) newRows = newRows.filter((nr) => nr.tempId !== tempId);
-    else editingRowIds.delete(record.id);
+    if (isNew) {
+      newRows = newRows.filter((nr) => nr.tempId !== tempId);
+      delete drafts['new:' + tempId];
+    } else {
+      editingRowIds.delete(record.id);
+      delete drafts['edit:' + record.id];
+    }
     render();
   });
   tdAction.appendChild(saveBtn);
@@ -731,6 +737,7 @@ async function saveRow(tr, record, isNew, tempId) {
 
   if (isNew && isPayloadEmpty(payload)) {
     newRows = newRows.filter((nr) => nr.tempId !== tempId);
+    delete drafts['new:' + tempId];
     render();
     return;
   }
@@ -754,6 +761,7 @@ async function saveRow(tr, record, isNew, tempId) {
     }).then((r) => r.json());
     records.push(created);
     newRows = newRows.filter((nr) => nr.tempId !== tempId);
+    delete drafts['new:' + tempId];
   } else {
     const updated = await fetch(`/api/records/${record.id}`, {
       method: 'PUT',
@@ -763,6 +771,7 @@ async function saveRow(tr, record, isNew, tempId) {
     const idx = records.findIndex((rec) => rec.id === record.id);
     records[idx] = updated;
     editingRowIds.delete(record.id);
+    delete drafts['edit:' + record.id];
   }
   render();
 }
@@ -785,6 +794,7 @@ async function saveAllPending() {
       const tempId = tr.dataset.tempId;
       if (isPayloadEmpty(payload)) {
         newRows = newRows.filter((nr) => String(nr.tempId) !== tempId);
+        delete drafts['new:' + tempId];
         return Promise.resolve();
       }
       return fetch('/api/records', {
@@ -796,6 +806,7 @@ async function saveAllPending() {
         .then((created) => {
           records.push(created);
           newRows = newRows.filter((nr) => String(nr.tempId) !== tempId);
+          delete drafts['new:' + tempId];
         });
     }
     const id = tr.dataset.recordId;
@@ -809,6 +820,7 @@ async function saveAllPending() {
         const idx = records.findIndex((rec) => rec.id === id);
         records[idx] = updated;
         editingRowIds.delete(id);
+        delete drafts['edit:' + id];
       });
   });
 
@@ -849,21 +861,40 @@ async function bulkDelete() {
   render();
 }
 
+function captureDrafts() {
+  document.querySelectorAll('#tableBody tr.editing-row').forEach((tr) => {
+    if (tr.dataset.tempId) {
+      const tempId = tr.dataset.tempId;
+      if (!newRows.some((nr) => String(nr.tempId) === tempId)) return;
+      drafts['new:' + tempId] = readRowValues(tr);
+    } else if (tr.dataset.recordId) {
+      const id = tr.dataset.recordId;
+      if (!editingRowIds.has(id)) return;
+      drafts['edit:' + id] = readRowValues(tr);
+    }
+  });
+}
+
 function render() {
+  captureDrafts();
+
   const filtered = getSorted(getFiltered());
   const tbody = el('#tableBody');
   tbody.innerHTML = '';
 
   filtered.forEach((r, idx) => {
     if (editingRowIds.has(r.id)) {
-      tbody.appendChild(buildEditableRow(r, false, undefined, idx + 1));
+      const draft = drafts['edit:' + r.id];
+      const rowData = draft ? { ...r, ...draft } : r;
+      tbody.appendChild(buildEditableRow(rowData, false, undefined, idx + 1));
     } else {
       tbody.appendChild(buildRow(r, idx + 1));
     }
   });
 
   newRows.forEach((nr) => {
-    tbody.appendChild(buildEditableRow({}, true, nr.tempId));
+    const draft = drafts['new:' + nr.tempId] || {};
+    tbody.appendChild(buildEditableRow(draft, true, nr.tempId));
   });
 
   updateSummary(filtered);
@@ -989,6 +1020,58 @@ async function handleImportFile(e) {
   await loadRecords();
 }
 
+function focusAndSelect(input) {
+  if (!input) return;
+  input.focus();
+  if (input.tagName === 'INPUT' && input.type === 'text' && typeof input.select === 'function') {
+    input.select();
+  }
+}
+
+function handleGridNavigation(e) {
+  const isArrow = e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+  if (!isArrow) return;
+  const target = e.target;
+  if (!target.matches('input, select, textarea')) return;
+  const tr = target.closest('tr.editing-row');
+  if (!tr) return;
+
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    const rows = Array.from(document.querySelectorAll('#tableBody tr.editing-row'));
+    const rowIdx = rows.indexOf(tr);
+    const targetRow = e.key === 'ArrowUp' ? rows[rowIdx - 1] : rows[rowIdx + 1];
+    if (!targetRow) return;
+    const key = target.dataset.key;
+    const part = target.dataset.part;
+    const selector = part ? `[data-key="${key}"][data-part="${part}"]` : `[data-key="${key}"]`;
+    const next = targetRow.querySelector(selector);
+    if (!next) return;
+    e.preventDefault();
+    focusAndSelect(next);
+    return;
+  }
+
+  // Left/Right: preserve native cursor/segment/option navigation for
+  // textareas, date inputs, and selects; for plain text inputs only jump
+  // to the next cell once the caret is already at that edge of the text.
+  const isDate = target.tagName === 'INPUT' && target.type === 'date';
+  if (target.tagName === 'SELECT' || target.tagName === 'TEXTAREA' || isDate) return;
+
+  if (!(target.tagName === 'INPUT' && target.type === 'checkbox')) {
+    const atStart = target.selectionStart === 0 && target.selectionEnd === 0;
+    const atEnd = target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+    if (e.key === 'ArrowLeft' && !atStart) return;
+    if (e.key === 'ArrowRight' && !atEnd) return;
+  }
+
+  const focusables = Array.from(tr.querySelectorAll('input, select, textarea')).filter((elm) => !elm.disabled);
+  const idx = focusables.indexOf(target);
+  const nextEl = e.key === 'ArrowLeft' ? focusables[idx - 1] : focusables[idx + 1];
+  if (!nextEl) return;
+  e.preventDefault();
+  focusAndSelect(nextEl);
+}
+
 function bindEvents() {
   el('#addBtn').addEventListener('click', startAdd);
   el('#bulkEditBtn').addEventListener('click', bulkEdit);
@@ -1001,10 +1084,12 @@ function bindEvents() {
   el('#importFileInput').addEventListener('change', handleImportFile);
   el('#resetFiltersBtn').addEventListener('click', resetFilters);
   document.addEventListener('click', () => closeAllFilterPanels());
+  document.addEventListener('keydown', handleGridNavigation);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && (newRows.length > 0 || editingRowIds.size > 0)) {
       newRows = [];
       editingRowIds.clear();
+      drafts = {};
       render();
     }
   });
