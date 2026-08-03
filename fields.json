@@ -4,7 +4,7 @@
   { "key": "team", "label": "팀명", "type": "text" },
   { "key": "solutionName", "label": "솔루션명", "type": "text" },
   { "key": "releaseName", "label": "릴리즈명", "type": "text" },
-  { "key": "releaseDate", "label": "릴리즈예정", "type": "date" },
+  { "key": "releaseDate", "label": "릴리즈예정일", "type": "date" },
   { "key": "releaseEnv", "label": "릴리즈환경", "type": "text" },
   { "key": "verificationCriteria", "label": "검증기준", "type": "select", "options": ["개발검증", "서비스릴리즈검증", "중간릴리즈검증", "패치검증", "검증지원", "개발스프린트점검", "출시QRB", "서비스오픈점검", "시스템오픈점검"] },
   { "key": "solutionType", "label": "구분", "type": "select", "options": ["상품", "과제"] },
