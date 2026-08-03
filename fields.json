@@ -10,7 +10,7 @@
   { "key": "solutionType", "label": "구분", "type": "select", "options": ["상품", "과제"] },
   { "key": "qrbKickoff", "label": "착수QRB", "type": "select", "options": ["완료"] },
   { "key": "status", "label": "검증상태", "type": "select", "options": ["계획", "진행", "완료", "취소"] },
-  { "key": "result", "label": "수행결과", "type": "select", "options": ["PASS", "FAIL"] },
+  { "key": "result", "label": "검증결과", "type": "select", "options": ["PASS", "FAIL"] },
   { "key": "tcCount", "label": "TC수", "type": "text" },
   { "key": "verificationOrg", "label": "검증주관", "type": "select", "options": ["SDSK", "GDCV", "GDCI", "GDCC"] },
   { "key": "targetCompletionDate", "label": "완료목표일자", "type": "date" },
