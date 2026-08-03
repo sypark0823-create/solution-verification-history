@@ -178,7 +178,8 @@ thead th {
 }
 
 .col-action {
-  min-width: 96px;
+  width: 1%;
+  min-width: 56px;
   text-align: center;
 }
 
