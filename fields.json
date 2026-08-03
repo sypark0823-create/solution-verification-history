@@ -12,7 +12,7 @@
   { "key": "status", "label": "검증상태", "type": "select", "options": ["계획", "진행", "완료", "취소"] },
   { "key": "result", "label": "수행결과", "type": "select", "options": ["PASS", "FAIL"] },
   { "key": "tcCount", "label": "TC수", "type": "text" },
-  { "key": "verificationOrg", "label": "검증주관조직", "type": "select", "options": ["SDSK", "GDCV", "GDCI", "GDCC"] },
+  { "key": "verificationOrg", "label": "검증주관", "type": "select", "options": ["SDSK", "GDCV", "GDCI", "GDCC"] },
   { "key": "targetCompletionDate", "label": "완료목표일자", "type": "date" },
   { "key": "completionDate", "label": "완료일자", "type": "date" },
   { "key": "qualityManager", "label": "담당자", "type": "text" },
