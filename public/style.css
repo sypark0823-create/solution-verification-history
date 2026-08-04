@@ -64,6 +64,11 @@ body {
   transition: background 0.15s ease;
 }
 
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: var(--primary);
   color: #fff;
@@ -397,6 +402,11 @@ textarea.inline-input {
   justify-content: center;
   margin-right: 2px;
   vertical-align: middle;
+}
+
+.icon-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .icon-edit {

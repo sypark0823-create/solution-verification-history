@@ -672,7 +672,13 @@ function buildEditableRow(record, isNew, tempId, serial) {
   const tdAction = document.createElement('td');
   tdAction.className = 'col-action';
   const saveBtn = iconButton('save', '저장', 'icon-save');
-  saveBtn.addEventListener('click', () => saveRow(tr, record, isNew, tempId));
+  saveBtn.addEventListener('click', () => {
+    if (saveBtn.disabled) return;
+    saveBtn.disabled = true;
+    saveRow(tr, record, isNew, tempId).finally(() => {
+      saveBtn.disabled = false;
+    });
+  });
   const cancelBtn = iconButton('cancel', '취소', 'icon-cancel');
   cancelBtn.addEventListener('click', () => {
     if (isNew) {
@@ -1076,7 +1082,14 @@ function bindEvents() {
   el('#addBtn').addEventListener('click', startAdd);
   el('#bulkEditBtn').addEventListener('click', bulkEdit);
   el('#bulkDeleteBtn').addEventListener('click', bulkDelete);
-  el('#bulkSaveBtn').addEventListener('click', saveAllPending);
+  const bulkSaveBtn = el('#bulkSaveBtn');
+  bulkSaveBtn.addEventListener('click', () => {
+    if (bulkSaveBtn.disabled) return;
+    bulkSaveBtn.disabled = true;
+    saveAllPending().finally(() => {
+      bulkSaveBtn.disabled = false;
+    });
+  });
   el('#exportBtn').addEventListener('click', () => {
     window.location.href = '/api/export';
   });
